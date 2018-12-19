@@ -1,6 +1,6 @@
 # An atomic, thread-safe incrementing counter.
-
-# @author: Yogesh Prasad Kurmi (ykurmi@vmware.com)
+#
+# @author Yogesh Prasad Kurmi (ykurmi@vmware.com)
 
 class AtomicInteger
   attr_accessor :value, :lock

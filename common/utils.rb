@@ -1,6 +1,6 @@
 # Utils module contains useful function for preparing and processing data.
-
-# @author: Yogesh Prasad Kurmi (ykurmi@vmware.com)
+#
+# @author Yogesh Prasad Kurmi (ykurmi@vmware.com)
 
 class WavefrontUtil
 
@@ -9,13 +9,11 @@ class WavefrontUtil
     name.nil? || name.strip.empty?  ? true : false
   end
 
-  # Sanitize a string, replace whitespace with '-''.
-
-  # @param string: Input string
-  # @return: Sanitized string
+  # Sanitize a string, replace whitespace with '-''
+  #
+  # @param string [String] string to be sanitized
+  # @return [String] Sanitized string
   def self.sanitize(string)
-
-
     whitespace_sanitized = string.gsub(" ", "-")
     # TODO
     #if whitespace_sanitized.include 
@@ -24,25 +22,19 @@ class WavefrontUtil
   end
 
   # Metric Data to String.
-
+  #
   # Wavefront Metrics Data format
   # <metricName> <metricValue> [<timestamp>] source=<source> [pointTags]
   # Example: 'new-york.power.usage 42422 1533531013 source=localhost
   #          datacenter=dc1'
-
-  # @param name: Metric Name
-  # @type name: str
-  # @param value: Metric Value
-  # @type value: float
-  # @param timestamp: Timestamp
-  # @type timestamp: long
-  # @param source: Source
-  # @type source: str
-  # @param tags: Tags
-  # @type tags: dict
-  # @param default_source:
-  # @type default_source: str
-  # @return: String
+  #
+  # @param name [String] Metric Name
+  # @param value [Float] Metric Value
+  # @param timestamp [Long] Timestamp
+  # @param source [String] Source
+  # @param tags [Hash] Tags
+  # @param default_source [String]
+  # @return  [String] String data of metrics
   def self.metric_to_line_data(name, value, timestamp, source, tags, default_source)
     raise ArgumentError('Metrics name cannot be blank') if is_blank(name)
     source = default_source if is_blank(source)
@@ -62,27 +54,20 @@ class WavefrontUtil
   end
 
   # Wavefront Histogram Data format.
-
+  #
   # {!M | !H | !D} [<timestamp>] #<count> <mean> [centroids] <histogramName>
   # source=<source> [pointTags]
   # Example: '!M 1533531013 #20 30.0 #10 5.1 request.latency source=appServer1
   #          region=us-west'
-
-  # @param name: Histogram Name
-  # @type name: str
-  # @param centroids: List of centroids(pairs)
-  # @type centroids: list
-  # @param histogram_granularities: Histogram Granularities
-  # @type histogram_granularities: set
-  # @param timestamp: Timestamp
-  # @type timestamp: long
-  # @param source: Source
-  # @type source: str
-  # @param tags: Tags
-  # @type tags: dict
-  # @param default_source: Default Source
-  # @type default_source: str
-  # @return: String data of Histogram
+  #
+  # @param name [String] Histogram Name
+  # @param centroids [List] List of centroids(pairs)
+  # @param histogram_granularities [Set] Histogram Granularities
+  # @param timestamp [Long] Timestamp
+  # @param source [String] Source
+  # @param tags [Hash] Tags
+  # @param default_source [String] Default Source
+  # @return [String] String data of Histogram
   def self.histogram_to_line_data(name, centroids, histogram_granularities, timestamp, source, tags, default_source)
     raise ArgumentError('Histogram name cannot be blank') if is_blank(name)
     raise ArgumentError('Histogram granularities cannot be null or empty') if histogram_granularities == nil ||  histogram_granularities.empty?
@@ -112,9 +97,8 @@ class WavefrontUtil
     line_builder.join("\n") + "\n"
   end
 
-
   #  Wavefront Tracing Span Data format.
-
+  #
   #  <tracingSpanName> source=<source> [pointTags] <start_millis>
   #  <duration_milli_seconds>
   #  Example: "getAllUsers source=localhost
@@ -123,29 +107,19 @@ class WavefrontUtil
   # parent=2f64e538-9457-11e8-9eb6-529269fb1459
   # application=Wavefront http.method=GET
   # 1533531013 343500
-
-  # @param name: Span Name
-  # @type name: str
-  # @param start_millis: Start time
-  # @type start_millis: long
-  # @param duration_millis: Duration time
-  # @type duration_millis: long
-  # @param source: Source
-  # @type source: str
-  # @param trace_id: Trace ID
-  # @type trace_id: UUID
-  # @param span_id: Span ID
-  # @type span_id: UUID
-  # @param parents: Parents Span ID
-  # @type parents: List of UUID
-  # @param follows_from: Follows Span ID
-  # @type follows_from: List of UUID
-  # @param tags: Tags
-  # @type tags: list
-  # @param span_logs: Span Log
-  # @param default_source: Default Source
-  # @type default_source: str
-  # @return: String data of tracing span
+  #
+  # @param name [String] Span Name
+  # @param start_millis [Long] Start time
+  # @param duration_millis [Long] Duration time
+  # @param source [String] Source
+  # @param trace_id [UUID] Trace ID
+  # @param span_id [UUID] Span ID
+  # @param parents [UUID] Parents Span ID
+  # @param follows_from [UUID] Follows Span ID
+  # @param tags [List] Tags
+  # @param span_logs [] Span Log
+  # @param default_source [String] Default Source
+  # @return [String] String data of tracing span
   def self.tracing_span_to_line_data(name, start_millis, duration_millis, source,
                                 trace_id, span_id, parents, follows_from, tags,
                                 span_logs, default_source)

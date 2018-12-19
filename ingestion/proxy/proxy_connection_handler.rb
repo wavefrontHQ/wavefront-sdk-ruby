@@ -1,6 +1,6 @@
 # Connection Handler class for sending data to a Wavefront proxy.
-
-# @author: Yogesh Prasad Kurmi (ykurmi@vmware.com)
+#
+# @author Yogesh Prasad Kurmi (ykurmi@vmware.com)
 
 require 'socket'
 
@@ -12,8 +12,8 @@ class ProxyConnectionHandler
   attr_accessor :address, :port, :reconnecting_socket, :failures
 
   # Construct ProxyConnectionHandler.
-  # @param address: Proxy Address
-  # @param port: Proxy Port
+  # @param address [String] Proxy Address
+  # @param port [Integer] Proxy Port
   def initialize(address, port)
     @failures = AtomicInteger.new
     @address = address
@@ -41,8 +41,8 @@ class ProxyConnectionHandler
 
   # Send data via proxy.
 
-  # @param line_data: Data to be sent
-  # @param reconnect: If it's the second time trying to send data
+  # @param line_data [String] Data to be sent
+  # @param reconnect [Boolean] If it's the second time trying to send data
   def send_data(line_data, reconnect=true)
     begin
       connect unless reconnecting_socket
