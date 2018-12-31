@@ -1,6 +1,6 @@
 # Wavefront Proxy Client.
 #
-# @author Yogesh Prasad Kurmi (ykurmi@vmware.com).
+# @author Yogesh Prasad Kurmi (ykurmi@vmware.com)
 
 require_relative 'proxy_connection_handler'
 require_relative '../../common/utils'
@@ -113,7 +113,8 @@ class WavefrontProxyClient
   # @param tags [Hash] Tags
   def send_distribution(name, centroids, histogram_granularities, timestamp, source, tags)
     begin
-      line_data = WavefrontUtil.histogram_to_line_data(name, centroids, histogram_granularities, timestamp, source, tags, default_source)
+      line_data = WavefrontUtil.histogram_to_line_data(
+          name, centroids, histogram_granularities, timestamp, source, tags, default_source)
       histogram_proxy_connection_handler.send_data(line_data)
     rescue Exception => error
       histogram_proxy_connection_handler.increment_failure_count()

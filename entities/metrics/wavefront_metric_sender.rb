@@ -3,6 +3,12 @@
 # @author Yogesh Prasad Kurmi (ykurmi@vmware.com)
 
 module WavefrontMetricSender
+  # ∆: INCREMENT
+  DELTA_PREFIX = '∆'  # '\u2206'
+
+  # Δ: GREEK CAPITAL LETTER DELTA
+  DELTA_PREFIX_2 = 'Δ'  # '\u0394'
+
   # Send Metric Data.
   # Wavefront Metrics Data format
   #   <metricName> <metricValue> [<timestamp>] source=<source> [pointTags]
@@ -27,5 +33,18 @@ module WavefrontMetricSender
   # @param metrics [List<String>] List of string spans data
   def send_metric_now(metrics)
     raise NotImplementedError, 'send_metric_now has not been implemented.'
+  end
+
+  # Send Delta Counter Data.
+  #
+  # @param name [String] Metric Name
+  # @param value [Float] Metric Value
+  # @param source [String] Source
+  # @param tags [Hash] Tags
+  def send_delta_counter(name, value, source, tags)
+    if !name.start_with?(DELTA_PREFIX) && !name.start_with?(DELTA_PREFIX_2)
+      name = DELTA_PREFIX + name
+    end
+    send_metric(name, value, None, source, tags)
   end
 end

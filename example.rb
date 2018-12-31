@@ -46,11 +46,12 @@ end
 #   1533529977 343500"
 def send_tracing_span_via_proxy(proxy_client)
   proxy_client.send_span(
-      "getAllProxyUsers", Time.now.to_i, 343500, "localhost",
-      SecureRandom.uuid, SecureRandom.uuid, [SecureRandom.uuid], nil,
-      {"application"=>"WavefrontRuby", "http.method"=>"GET", "service"=>"TestRuby"}, nil)
+      "getInput", Time.now.to_i, 343500, "glp_server",
+      "af587a5e-019d-4368-afb0-77c411080597", SecureRandom.uuid, [SecureRandom.uuid], nil,
+      {"component"=>"client", "User"=>"glaullon", "application"=>"WavefrontGo1", "cluster"=>"cluster",
+       "component"=>"component", "service"=>"TestGo", "shard"=>"shard"}, nil)
 
-  puts "Sent tracing span: 'getAllProxyUsers' to proxy"
+  puts "Sent tracing span: 'getInput' to proxy"
 end
 
 if __FILE__ == $0
