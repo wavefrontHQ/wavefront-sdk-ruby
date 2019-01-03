@@ -2,11 +2,31 @@
 #
 # @author Yogesh Prasad Kurmi (ykurmi@vmware.com)
 
+require "zlib"
+
 class WavefrontUtil
 
   # Returns true if the name is empty otherwise false.
   def self.is_blank(name)
     name.nil? || name.strip.empty?  ? true : false
+  end
+
+  # Split list of data into chunks with fixed batch size.
+  #
+  # @param data_list [List] List of data
+  # @param batch_size [Integer] Batch size of each chunk
+  def self.chunks(data_list, batch_size)
+    data_list.each_slice(batch_size).to_a
+  end
+
+  # Compress data using GZIP.
+  #
+  # @param data [String] Data to compress
+  # @return: Compressed data
+  def self.gzip_compress(data)
+    gzip = Zlib::GzipWriter.new(StringIO.new,Zlib::BEST_COMPRESSION)
+    gzip << data.encode('utf-8')
+    gzip.close.string
   end
 
   # Sanitize a string, replace whitespace with '-''
@@ -98,7 +118,7 @@ class WavefrontUtil
       end
       line_builder.push(str_builder.join(' '))
     end
-    line_builder.join('\n') + '\n'
+    line_builder.join("\n") + "\n"
   end
 
   #  Wavefront Tracing Span Data format.
@@ -157,6 +177,6 @@ class WavefrontUtil
     end
     str_builder.push(start_millis.to_s)
     str_builder.push(duration_millis.to_s)
-    str_builder.join(' ') + '\n'
+    str_builder.join(' ') + "\n"
   end
 end
