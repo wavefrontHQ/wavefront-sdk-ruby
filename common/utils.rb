@@ -72,7 +72,7 @@ class WavefrontUtil
       end
     end
 
-    str_builder.join(' ') + '\n'
+    str_builder.join(' ') + "\n"
   end
 
   # Wavefront Histogram Data format.

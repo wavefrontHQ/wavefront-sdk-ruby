@@ -21,7 +21,7 @@ class WavefrontDirectClient
   WAVEFRONT_TRACING_SPAN_FORMAT = 'trace'
 
   attr_reader :WAVEFRONT_METRIC_FORMAT, :WAVEFRONT_HISTOGRAM_FORMAT, :WAVEFRONT_TRACING_SPAN_FORMAT,
-              :server, :token, :max_queue_size, :batch_size, :flush_interval_seconds
+              :server, :token, :max_queue_size, :batch_size, :flush_interval_seconds, :default_source
 
   attr_accessor :metrics_buffer, :histograms_buffer, :tracing_spans_buffer, :headers
 
@@ -46,9 +46,36 @@ class WavefrontDirectClient
                      'Content-Encoding'=>'gzip',
                      'Authorization'=>'Bearer ' + token}
     @closed = false
-    #@schedule_lock = Lock()
-    #@timer = None
-    #@schedule_timer()
+    Thread.new {schedule_task}
+  end
+
+  def schedule_task
+    # Flush every 5 secs by default
+    while true do
+      sleep(flush_interval_seconds)
+      flush_now
+    end
+  end
+
+  # Flush all the data buffer immediately.
+  def flush_now
+    internal_flush(metrics_buffer, WAVEFRONT_METRIC_FORMAT)
+    internal_flush(histograms_buffer, WAVEFRONT_HISTOGRAM_FORMAT)
+    internal_flush(tracing_spans_buffer, WAVEFRONT_TRACING_SPAN_FORMAT)
+  end
+
+  # Get all data from one data buffer to a list, and report that list.
+  #
+  # @param data_buffer [Queue] Data buffer to be flush and sent
+  # @param data_format [String] Type of data to be sent
+  def internal_flush(data_buffer, data_format)
+    data = []
+    size = data_buffer.size
+    while size > 0 && !data_buffer.empty?
+      data << data_buffer.pop
+      size -= 1
+    end
+    batch_report(data, data_format)
   end
 
   # One api call sending one given string data.

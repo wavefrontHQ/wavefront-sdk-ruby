@@ -7,7 +7,6 @@ require 'set'
 
 require_relative 'ingestion/proxy/wavefront_proxy_client'
 
-
 # Wavefront Metrics Data format
 #   <metricName> <metricValue> [<timestamp>] source=<source> [pointTags]
 #
@@ -46,12 +45,11 @@ end
 #   1533529977 343500"
 def send_tracing_span_via_proxy(proxy_client)
   proxy_client.send_span(
-      "getInput", Time.now.to_i, 343500, "glp_server",
-      "af587a5e-019d-4368-afb0-77c411080597", SecureRandom.uuid, [SecureRandom.uuid], nil,
-      {"component"=>"client", "User"=>"glaullon", "application"=>"WavefrontGo1", "cluster"=>"cluster",
-       "component"=>"component", "service"=>"TestGo", "shard"=>"shard"}, nil)
+      "getAllProxyUsers", Time.now.to_i, 343500, "localhost",
+      SecureRandom.uuid, SecureRandom.uuid, [SecureRandom.uuid], nil,
+      {"application"=>"WavefrontRuby", "http.method"=>"GET", "service"=>"TestRuby"}, nil)
 
-  puts "Sent tracing span: 'getInput' to proxy"
+  puts "Sent tracing span: 'getAllProxyUsers' to proxy"
 end
 
 if __FILE__ == $0
@@ -63,7 +61,6 @@ if __FILE__ == $0
   tracing_port = ARGV[5] ? ARGV[5] : nil
 
   wavefront_proxy_client = WavefrontProxyClient.new(proxy_host, metrics_port, distribution_port, tracing_port)
-
   begin
     while true do
       send_metrics_via_proxy(wavefront_proxy_client)
