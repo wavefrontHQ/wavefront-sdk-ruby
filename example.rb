@@ -6,6 +6,7 @@ require 'securerandom'
 require 'set'
 
 require_relative 'ingestion/proxy/wavefront_proxy_client'
+require_relative 'ingestion/direct/wavefront_direct_ingestion_client'
 
 # Wavefront Metrics Data format
 #   <metricName> <metricValue> [<timestamp>] source=<source> [pointTags]
@@ -52,6 +53,29 @@ def send_tracing_span_via_proxy(proxy_client)
   puts "Sent tracing span: 'getAllProxyUsers' to proxy"
 end
 
+def send_metrics_via_direct_ingestion(direct_ingestion_client)
+  direct_ingestion_client.send_metric("ruby.direct.new york.power.usage",
+                                        42422.0, nil, "localhost", nil)
+  puts 'Sending metrics via direct ingestion client'
+end
+
+def send_histogram_via_direct_ingestion(direct_ingestion_client)
+  direct_ingestion_client.send_distribution(
+      "ruby.direct.request.latency", [[30, 20], [5.1, 10]], Set.new([DAY, HOUR, MINUTE]),
+      nil, "appServer1", {"region"=>"us-west"})
+  puts 'Sending distributions via direct ingestion client'
+end
+
+def send_tracing_span_via_direct_ingestion(direct_ingestion_client)
+  direct_ingestion_client.send_span(
+      "getAllUsersFromRubyDirect", Time.now.to_i, 343500, "localhost",
+      "7b3bf470-9456-11e8-9eb6-529269fb1459",
+      "0313bafe-9457-11e8-9eb6-529269fb1459",
+      ["2f64e538-9457-11e8-9eb6-529269fb1459"],
+      nil, {"application"=>"WavefrontRuby", "http.method"=>"GET", "service"=>"TestRuby"}, nil)
+  puts 'Sending tracing span via direct ingestion client'
+end
+
 if __FILE__ == $0
   wavefront_server = ARGV[0]
   token = ARGV[1]
@@ -61,14 +85,19 @@ if __FILE__ == $0
   tracing_port = ARGV[5] ? ARGV[5] : nil
 
   wavefront_proxy_client = WavefrontProxyClient.new(proxy_host, metrics_port, distribution_port, tracing_port)
+  wavefront_direct_client = WavefrontDirectClient.new(wavefront_server, token)
   begin
     while true do
       send_metrics_via_proxy(wavefront_proxy_client)
       send_histogram_via_proxy(wavefront_proxy_client)
       send_tracing_span_via_proxy(wavefront_proxy_client)
+      send_metrics_via_direct_ingestion(wavefront_direct_client)
+      send_histogram_via_direct_ingestion(wavefront_direct_client)
+      send_tracing_span_via_direct_ingestion(wavefront_direct_client)
       sleep 1
     end
   ensure
     wavefront_proxy_client.close
+    wavefront_direct_client.close
   end
 end

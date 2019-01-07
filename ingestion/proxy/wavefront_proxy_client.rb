@@ -165,7 +165,6 @@ class WavefrontProxyClient
   # @param span_logs [] Span Log
   def send_span(name, start_millis, duration_millis, source, trace_id,
                 span_id, parents, follows_from, tags, span_logs)
-
     begin
       line_data = WavefrontUtil.tracing_span_to_line_data(
               name, start_millis, duration_millis, source, trace_id, span_id,
