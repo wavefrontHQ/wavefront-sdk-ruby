@@ -104,8 +104,7 @@ class WavefrontDirectClient
       uri = URI.parse(server)
       https = Net::HTTP.new(uri.host, uri.port)
       https.use_ssl = true
-      request = Net::HTTP::Post.new('/report', headers)
-      request['f'] = data_format
+      request = Net::HTTP::Post.new('/report?f=' + data_format, headers)
       request.body = payload
 
       response = https.request(request)

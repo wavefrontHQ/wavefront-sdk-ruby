@@ -69,9 +69,7 @@ end
 def send_tracing_span_via_direct_ingestion(direct_ingestion_client)
   direct_ingestion_client.send_span(
       "getAllUsersFromRubyDirect", Time.now.to_i, 343500, "localhost",
-      "7b3bf470-9456-11e8-9eb6-529269fb1459",
-      "0313bafe-9457-11e8-9eb6-529269fb1459",
-      ["2f64e538-9457-11e8-9eb6-529269fb1459"],
+      SecureRandom.uuid, SecureRandom.uuid, [SecureRandom.uuid],
       nil, {"application"=>"WavefrontRuby", "http.method"=>"GET", "service"=>"TestRuby"}, nil)
   puts 'Sending tracing span via direct ingestion client'
 end
