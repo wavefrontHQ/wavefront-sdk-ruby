@@ -4,9 +4,8 @@
 
 require 'securerandom'
 require 'set'
-
-require_relative 'ingestion/proxy/wavefront_proxy_client'
-require_relative 'ingestion/direct/wavefront_direct_ingestion_client'
+require_relative 'proxy'
+require_relative 'direct'
 
 # Wavefront Metrics Data format
 #   <metricName> <metricValue> [<timestamp>] source=<source> [pointTags]
@@ -83,7 +82,7 @@ if __FILE__ == $0
   tracing_port = ARGV[5] ? ARGV[5] : nil
 
   wavefront_proxy_client = WavefrontProxyClient.new(proxy_host, metrics_port, distribution_port, tracing_port)
-  wavefront_direct_client = WavefrontDirectClient.new(wavefront_server, token)
+  wavefront_direct_client = WavefrontDirectIngestionClient.new(wavefront_server, token)
   begin
     while true do
       send_metrics_via_proxy(wavefront_proxy_client)

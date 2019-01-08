@@ -6,13 +6,13 @@
 require 'uri'
 require 'net/http'
 
-require_relative '../../entities/metrics/wavefront_metric_sender'
-require_relative '../../entities/histogram/wavefront_histogram_sender'
-require_relative '../../entities/tracing/wavefront_tracing_span_sender'
-require_relative '../../common/utils'
-require_relative '../../common/atomic_integer'
+require_relative 'common/utils'
+require_relative 'common/atomic_integer'
+require_relative 'entities/metrics/wavefront_metric_sender'
+require_relative 'entities/histogram/wavefront_histogram_sender'
+require_relative 'entities/tracing/wavefront_tracing_span_sender'
 
-class WavefrontDirectClient
+class WavefrontDirectIngestionClient
   include WavefrontMetricSender
   include WavefrontHistogramSender
   include WavefrontTracingSpanSender
@@ -54,6 +54,11 @@ class WavefrontDirectClient
 
     # Start a task to send the metrics periodically
     task.run
+  end
+
+  # Get Total Failure Count
+  def failure_count
+    failures.value
   end
 
   # Flush all buffer before close the client.

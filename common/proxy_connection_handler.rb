@@ -4,7 +4,7 @@
 
 require 'socket'
 
-require_relative '../../common/atomic_integer'
+require_relative 'atomic_integer'
 
 # Connection Handler.
 # For sending data to a Wavefront proxy listening on a given port.

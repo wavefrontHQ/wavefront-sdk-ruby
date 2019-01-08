@@ -36,11 +36,11 @@ class WavefrontUtil
   def self.sanitize(string)
     whitespace_sanitized = string.gsub " ", "-"
     # TODO
-    if whitespace_sanitized.include? '"'
-      whitespace_sanitized.gsub! /\"/, '\\\"'
+    if whitespace_sanitized.include? "\""
+      "\"" + whitespace_sanitized.gsub!(/\"/, "\\\\\"") + "\""
     end
 
-    '"' + whitespace_sanitized + '"'
+    "\"" + whitespace_sanitized + "\""
   end
 
   # Metric Data to String.

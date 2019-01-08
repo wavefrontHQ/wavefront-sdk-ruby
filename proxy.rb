@@ -2,15 +2,15 @@
 #
 # @author Yogesh Prasad Kurmi (ykurmi@vmware.com)
 
-require_relative 'proxy_connection_handler'
-require_relative '../../common/utils'
-require_relative '../../entities/histogram/histogram_granularity'
-require_relative '../../entities/metrics/wavefront_metric_sender'
-require_relative '../../entities/histogram/wavefront_histogram_sender'
-require_relative '../../entities/tracing/wavefront_tracing_span_sender'
+require_relative 'common/proxy_connection_handler'
+require_relative 'common/utils'
+require_relative 'entities/histogram/histogram_granularity'
+require_relative 'entities/metrics/wavefront_metric_sender'
+require_relative 'entities/histogram/wavefront_histogram_sender'
+require_relative 'entities/tracing/wavefront_tracing_span_sender'
 
 
-# WavefrontProxyClient that sends data directly via TCP.
+# Proxy that sends data directly via TCP.
 # User should probably attempt to reconnect when exceptions are thrown from any methods.
 class WavefrontProxyClient
   include WavefrontMetricSender
