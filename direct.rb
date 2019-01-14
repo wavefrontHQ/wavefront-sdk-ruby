@@ -21,24 +21,18 @@ class WavefrontDirectIngestionClient
   WAVEFRONT_HISTOGRAM_FORMAT = 'histogram'.freeze
   WAVEFRONT_TRACING_SPAN_FORMAT = 'trace'.freeze
 
-  attr_reader :WAVEFRONT_METRIC_FORMAT, :WAVEFRONT_HISTOGRAM_FORMAT, :WAVEFRONT_TRACING_SPAN_FORMAT,
-              :server, :token, :max_queue_size, :batch_size, :flush_interval_seconds, :default_source,
-              :failures, :task, :lock, :closed
-
-  attr_accessor :metrics_buffer, :histograms_buffer, :tracing_spans_buffer, :headers
-
   # Construct Direct Client.
   #
   # @param server [String] Server address, Example: https://INSTANCE.wavefront.com
   # @param token [String] Token with Direct Data Ingestion permission granted
-  # @param max_queue_size [Integer] Max Queue Size, size of internal data buffer for each data type, 50000 by default.
-  # @param batch_size [Integer] Batch Size, amount of data sent by one api call, 10000 by default
+  # @param max_queue_size [Integer] Max Queue Size, size of internal data buffer
+  # for each data type, 50000 by default.
+  # @param batch_size [Integer] Batch Size, amount of data sent by one api call,
+  # 10000 by default
   # @param flush_interval_seconds [Integer] Interval flush time, 5 secs by default
   def initialize(server, token, max_queue_size=50000, batch_size=10000, flush_interval_seconds=5)
     @failures = AtomicInteger.new
     @server = server
-    @token = token
-    @max_queue_size = max_queue_size
     @batch_size = batch_size
     @flush_interval_seconds = flush_interval_seconds
     @default_source = "wavefrontDirectSender"
@@ -53,36 +47,36 @@ class WavefrontDirectIngestionClient
     @task = Thread.new {schedule_task}
 
     # Start a task to send the metrics periodically
-    task.run
+    @task.run
   end
 
   # Get Total Failure Count
   def failure_count
-    failures.value
+    @failures.value
   end
 
   # Flush all buffer before close the client.
   def close
     flush_now
-    lock.synchronize do
-      closed = true
-      task.exit
+    @lock.synchronize do
+      @closed = true
+      @task.exit
     end
   end
 
   def schedule_task
     # Flush every 5 secs by default
-    while true && !closed do
-      sleep(flush_interval_seconds)
+    while true && !@closed do
+      sleep(@flush_interval_seconds)
       flush_now
     end
   end
 
   # Flush all the data buffer immediately.
   def flush_now
-    internal_flush(metrics_buffer, WAVEFRONT_METRIC_FORMAT)
-    internal_flush(histograms_buffer, WAVEFRONT_HISTOGRAM_FORMAT)
-    internal_flush(tracing_spans_buffer, WAVEFRONT_TRACING_SPAN_FORMAT)
+    internal_flush(@metrics_buffer, WAVEFRONT_METRIC_FORMAT)
+    internal_flush(@histograms_buffer, WAVEFRONT_HISTOGRAM_FORMAT)
+    internal_flush(@tracing_spans_buffer, WAVEFRONT_TRACING_SPAN_FORMAT)
   end
 
   # Get all data from one data buffer to a list, and report that list.
@@ -106,10 +100,10 @@ class WavefrontDirectIngestionClient
   def report(points, data_format)
     begin
       payload = WavefrontUtil.gzip_compress(points)
-      uri = URI.parse(server)
+      uri = URI.parse(@server)
       https = Net::HTTP.new(uri.host, uri.port)
       https.use_ssl = true
-      request = Net::HTTP::Post.new('/report?f=' + data_format, headers)
+      request = Net::HTTP::Post.new('/report?f=' + data_format, @headers)
       request.body = payload
 
       response = https.request(request)
@@ -117,7 +111,7 @@ class WavefrontDirectIngestionClient
         puts "Error reporting points, Response #{response.code} #{response.message}"
       end
     rescue Exception => error
-      failures.increment
+      @failures.increment
       raise error
     end
   end
@@ -128,7 +122,7 @@ class WavefrontDirectIngestionClient
   # @param data_format [String] Type of data to be sent
   def batch_report(batch_line_data, data_format)
     # Split data into chunks, each with the size of given batch_size
-    data_chunks = WavefrontUtil.chunks(batch_line_data, batch_size)
+    data_chunks = WavefrontUtil.chunks(batch_line_data, @batch_size)
     data_chunks.each do |batch|
       # report once per batch
       report(batch.join("\n") + "\n", data_format)
@@ -150,8 +144,8 @@ class WavefrontDirectIngestionClient
   # @param source [String] Source
   # @param tags [Hash] Tags
   def send_metric(name, value, timestamp, source, tags)
-    line_data = WavefrontUtil.metric_to_line_data(name, value, timestamp, source, tags, default_source)
-    metrics_buffer.push(line_data)
+    line_data = WavefrontUtil.metric_to_line_data(name, value, timestamp, source, tags, @default_source)
+    @metrics_buffer.push(line_data)
   end
 
   # Send a list of metrics immediately.
@@ -182,8 +176,8 @@ class WavefrontDirectIngestionClient
   def send_distribution(name, centroids, histogram_granularities,
                         timestamp, source, tags)
     line_data = WavefrontUtil.histogram_to_line_data(name, centroids, histogram_granularities,
-                                     timestamp, source, tags, default_source)
-    histograms_buffer.push(line_data)
+                                     timestamp, source, tags, @default_source)
+    @histograms_buffer.push(line_data)
   end
 
   # Send a list of distribution immediately.
@@ -225,8 +219,8 @@ class WavefrontDirectIngestionClient
 
     line_data = WavefrontUtil.tracing_span_to_line_data(name, start_millis, duration_millis,
                                           source, trace_id, span_id, parents,
-                                          follows_from, tags, span_logs, default_source)
-    tracing_spans_buffer.push(line_data)
+                                          follows_from, tags, span_logs, @default_source)
+    @tracing_spans_buffer.push(line_data)
   end
 
   # Send a list of spans immediately.

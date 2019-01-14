@@ -7,6 +7,8 @@ require "zlib"
 class WavefrontUtil
 
   # Returns true if the name is empty otherwise false.
+  # @param name [String]
+  # @return [Boolean]
   def self.is_blank(name)
     name.nil? || name.strip.empty?  ? true : false
   end
@@ -15,6 +17,7 @@ class WavefrontUtil
   #
   # @param data_list [List] List of data
   # @param batch_size [Integer] Batch size of each chunk
+  # @return [List] an list of chunks
   def self.chunks(data_list, batch_size)
     data_list.each_slice(batch_size).to_a
   end
@@ -22,7 +25,7 @@ class WavefrontUtil
   # Compress data using GZIP.
   #
   # @param data [String] Data to compress
-  # @return: Compressed data
+  # @return Compressed data
   def self.gzip_compress(data)
     gzip = Zlib::GzipWriter.new(StringIO.new,Zlib::BEST_COMPRESSION)
     gzip << data.encode('utf-8')
@@ -58,7 +61,7 @@ class WavefrontUtil
   # @param default_source [String]
   # @return  [String] String data of metrics
   def self.metric_to_line_data(name, value, timestamp, source, tags, default_source)
-    raise ArgumentError.new('Metrics name cannot be blank') if is_blank(name)
+    raise(ArgumentError, 'Metrics name cannot be blank') if is_blank(name)
     source = default_source if is_blank(source)
     str_builder = [sanitize(name), value.to_f.to_s]
     str_builder.push(timestamp.to_i.to_s) if timestamp
@@ -66,8 +69,8 @@ class WavefrontUtil
 
     unless tags.nil?
       tags.each do |key, val|
-        raise ArgumentError.new('Metric point tag key cannot be blank') if is_blank(key)
-        raise ArgumentError.new('Metric point tag value cannot be blank') if is_blank(val)
+        raise(ArgumentError,'Metric point tag key cannot be blank') if is_blank(key)
+        raise(ArgumentError, 'Metric point tag value cannot be blank') if is_blank(val)
         str_builder.push(sanitize(key) + '=' + sanitize(val))
       end
     end
@@ -91,10 +94,10 @@ class WavefrontUtil
   # @param default_source [String] Default Source
   # @return [String] String data of Histogram
   def self.histogram_to_line_data(name, centroids, histogram_granularities, timestamp, source, tags, default_source)
-    raise ArgumentError.new('Histogram name cannot be blank') if is_blank(name)
-    raise ArgumentError.new('Histogram granularities cannot be null or empty') if
+    raise(ArgumentError, 'Histogram name cannot be blank') if is_blank(name)
+    raise(ArgumentError, 'Histogram granularities cannot be null or empty') if
         histogram_granularities == nil ||  histogram_granularities.empty?
-    raise ArgumentError.new('A distribution should have at least one centroid') if
+    raise(ArgumentError, 'A distribution should have at least one centroid') if
         centroids == nil ||  centroids.empty?
     source = default_source if is_blank(source)
 
@@ -111,8 +114,8 @@ class WavefrontUtil
       str_builder.push("source=" + sanitize(source))
       unless tags.nil?
         tags.each do |key, val|
-          raise ArgumentError.new('Histogram tag key cannot be blank') if is_blank(key)
-          raise ArgumentError.new('Histogram tag value cannot be blank') if is_blank(val)
+          raise(ArgumentError, 'Histogram tag key cannot be blank') if is_blank(key)
+          raise(ArgumentError, 'Histogram tag value cannot be blank') if is_blank(val)
           str_builder.push(sanitize(key) + '=' + sanitize(val))
         end
       end
@@ -141,13 +144,13 @@ class WavefrontUtil
   # @param parents [UUID] Parents Span ID
   # @param follows_from [UUID] Follows Span ID
   # @param tags [List] Tags
-  # @param span_logs [] Span Log
+  # @param span_logs [List] Span Log
   # @param default_source [String] Default Source
   # @return [String] String data of tracing span
   def self.tracing_span_to_line_data(name, start_millis, duration_millis, source,
                                 trace_id, span_id, parents, follows_from, tags,
                                 span_logs, default_source)
-    raise ArgumentError.new('Span name cannot be blank') if is_blank(name)
+    raise(ArgumentError, 'Span name cannot be blank') if is_blank(name)
     source = default_source if is_blank(source)
     str_builder = [sanitize(name),
                    "source=" + sanitize(source),
@@ -166,8 +169,8 @@ class WavefrontUtil
     unless tags.nil?
       tag_set = Set[]
       tags.each do |key, value|
-        raise ArgumentError.new('Span tag key cannot be blank') if is_blank(key)
-        raise ArgumentError.new('Span tag value cannot be blank') if is_blank(value)
+        raise(ArgumentError, 'Span tag key cannot be blank') if is_blank(key)
+        raise(ArgumentError, 'Span tag value cannot be blank') if is_blank(value)
         cur_tag = sanitize(key) + "=" + sanitize(value)
         unless tag_set.include? cur_tag
           str_builder.push(cur_tag)

@@ -2,6 +2,6 @@
 #
 # @author Yogesh Prasad Kurmi (ykurmi@vmware.com)
 
-MINUTE = "!M"
-HOUR = "!H"
-DAY = "!D"
+MINUTE = "!M".freeze
+HOUR = "!H".freeze
+DAY = "!D".freeze

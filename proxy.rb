@@ -11,26 +11,23 @@ require_relative 'entities/tracing/wavefront_tracing_span_sender'
 
 
 # Proxy that sends data directly via TCP.
-# User should probably attempt to reconnect when exceptions are thrown from any methods.
+# User should probably attempt to reconnect when exceptions are thrown from
+# any methods.
 class WavefrontProxyClient
   include WavefrontMetricSender
   include WavefrontHistogramSender
   include WavefrontTracingSpanSender
 
-  attr_reader :proxy_host, :metrics_port, :distribution_port, :tracing_port, :metrics_proxy_connection_handler,
-              :histogram_proxy_connection_handler, :tracing_proxy_connection_handler, :default_source
-
   # Construct Proxy Client.
   #
   # @param host [String] Hostname of the Wavefront proxy, 2878 by default
-  # @param metrics_port [Integer] Metrics Port on which the Wavefront proxy is listening on
-  # @param distribution_port [Integer] Distribution Port on which the Wavefront proxy is listening on
-  # @param tracing_port [Integer] Tracing Port on which the Wavefront proxy is listening on
+  # @param metrics_port [Integer] Metrics Port on which the Wavefront proxy is
+  # listening on
+  # @param distribution_port [Integer] Distribution Port on which the Wavefront
+  # proxy is listening on
+  # @param tracing_port [Integer] Tracing Port on which the Wavefront proxy is
+  # listening on
   def initialize(host, metrics_port, distribution_port, tracing_port)
-    @proxy_host = host
-    @metrics_port = metrics_port
-    @distribution_port = distribution_port
-    @tracing_port = tracing_port
     @metrics_proxy_connection_handler =  metrics_port.nil? ? nil : ProxyConnectionHandler.new(host, metrics_port)
     @histogram_proxy_connection_handler = distribution_port.nil? ? nil : ProxyConnectionHandler.new(host, distribution_port)
     @tracing_proxy_connection_handler = tracing_port.nil? ? nil : ProxyConnectionHandler.new(host, tracing_port)
@@ -39,9 +36,9 @@ class WavefrontProxyClient
 
   # Close all proxy connections.
   def close
-    metrics_proxy_connection_handler.close() if metrics_proxy_connection_handler
-    histogram_proxy_connection_handler.close() if histogram_proxy_connection_handler
-    tracing_proxy_connection_handler.close() if tracing_proxy_connection_handler
+    @metrics_proxy_connection_handler.close() if @metrics_proxy_connection_handler
+    @histogram_proxy_connection_handler.close() if @histogram_proxy_connection_handler
+    @tracing_proxy_connection_handler.close() if @tracing_proxy_connection_handler
   end
 
   # Get Total Failure Count for all connections.
@@ -49,9 +46,9 @@ class WavefrontProxyClient
   # @return [Integer] Failure Count
   def failure_count
     failure_count = 0
-    failure_count += metrics_proxy_connection_handler.failure_count if metrics_proxy_connection_handler
-    failure_count += histogram_proxy_connection_handler.failure_count if histogram_proxy_connection_handler
-    failure_count += tracing_proxy_connection_handler.failure_count if tracing_proxy_connection_handler
+    failure_count += @metrics_proxy_connection_handler.failure_count if @metrics_proxy_connection_handler
+    failure_count += @histogram_proxy_connection_handler.failure_count if @histogram_proxy_connection_handler
+    failure_count += @tracing_proxy_connection_handler.failure_count if @tracing_proxy_connection_handler
     failure_count
   end
 
@@ -71,10 +68,11 @@ class WavefrontProxyClient
   # @param tags [Hash] Tags
   def send_metric(name, value, timestamp, source, tags)
     begin
-      line_data = WavefrontUtil.metric_to_line_data(name, value, timestamp, source, tags, default_source)
-      metrics_proxy_connection_handler.send_data(line_data)
+      line_data = WavefrontUtil.metric_to_line_data(name, value, timestamp, source,
+                                                    tags, @default_source)
+      @metrics_proxy_connection_handler.send_data(line_data)
     rescue Exception => error
-      metrics_proxy_connection_handler.increment_failure_count
+      @metrics_proxy_connection_handler.increment_failure_count
       raise error
     end
   end
@@ -87,9 +85,9 @@ class WavefrontProxyClient
   def send_metric_now(metrics)
     metrics.each do |metric|
       begin
-        metrics_proxy_connection_handler.send_data(metric)
+        @metrics_proxy_connection_handler.send_data(metric)
       rescue Exception => error
-        metrics_proxy_connection_handler.increment_failure_count()
+        @metrics_proxy_connection_handler.increment_failure_count()
         raise error
       end
     end
@@ -111,13 +109,14 @@ class WavefrontProxyClient
   # @param timestamp [Long] Timestamp
   # @param source [String] Source
   # @param tags [Hash] Tags
-  def send_distribution(name, centroids, histogram_granularities, timestamp, source, tags)
+  def send_distribution(name, centroids, histogram_granularities, timestamp,
+                        source, tags)
     begin
-      line_data = WavefrontUtil.histogram_to_line_data(
-          name, centroids, histogram_granularities, timestamp, source, tags, default_source)
-      histogram_proxy_connection_handler.send_data(line_data)
+      line_data = WavefrontUtil.histogram_to_line_data(name, centroids, histogram_granularities,
+                                                       timestamp, source, tags, @default_source)
+      @histogram_proxy_connection_handler.send_data(line_data)
     rescue Exception => error
-      histogram_proxy_connection_handler.increment_failure_count()
+      @histogram_proxy_connection_handler.increment_failure_count()
       raise error
     end
   end
@@ -131,9 +130,9 @@ class WavefrontProxyClient
   def send_distribution_now(distributions)
     distributions.each do |distribution|
       begin
-        histogram_proxy_connection_handler.send_data(distribution)
+        @histogram_proxy_connection_handler.send_data(distribution)
       rescue Exception => error
-        histogram_proxy_connection_handler.increment_failure_count()
+        @histogram_proxy_connection_handler.increment_failure_count()
         raise error
       end
     end
@@ -168,10 +167,10 @@ class WavefrontProxyClient
     begin
       line_data = WavefrontUtil.tracing_span_to_line_data(
               name, start_millis, duration_millis, source, trace_id, span_id,
-              parents, follows_from, tags, span_logs, default_source)
-      tracing_proxy_connection_handler.send_data(line_data)
+              parents, follows_from, tags, span_logs, @default_source)
+      @tracing_proxy_connection_handler.send_data(line_data)
     rescue Exception => error
-      tracing_proxy_connection_handler.increment_failure_count()
+      @tracing_proxy_connection_handler.increment_failure_count()
       raise error
     end
   end
@@ -185,9 +184,9 @@ class WavefrontProxyClient
   def send_span_now(spans)
     spans.each do |span|
       begin
-        tracing_proxy_connection_handler.send_data(span)
+        @tracing_proxy_connection_handler.send_data(span)
       rescue Exception => error
-        tracing_proxy_connection_handler.increment_failure_count()
+        @tracing_proxy_connection_handler.increment_failure_count()
         raise error
       end
     end

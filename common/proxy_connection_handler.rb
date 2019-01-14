@@ -9,8 +9,6 @@ require_relative 'atomic_integer'
 # Connection Handler.
 # For sending data to a Wavefront proxy listening on a given port.
 class ProxyConnectionHandler
-  attr_accessor :address, :port, :reconnecting_socket, :failures
-
   # Construct ProxyConnectionHandler.
   # @param address [String] Proxy Address
   # @param port [Integer] Proxy Port
@@ -23,20 +21,20 @@ class ProxyConnectionHandler
 
   # Open a socket connection to the given address:port
   def connect
-    @reconnecting_socket = TCPSocket.open(address, port)
+    @reconnecting_socket = TCPSocket.open(@address, @port)
   end
 
   # Close socket if it's open now.
   def close
-    reconnecting_socket.close if reconnecting_socket
+    @reconnecting_socket.close if @reconnecting_socket
   end
 
   def failure_count
-    failures.value
+    @failures.value
   end
 
   def increment_failure_count
-    failures.increment
+    @failures.increment
   end
 
   # Send data via proxy.
@@ -45,8 +43,8 @@ class ProxyConnectionHandler
   # @param reconnect [Boolean] If it's the second time trying to send data
   def send_data(line_data, reconnect=true)
     begin
-      connect unless reconnecting_socket
-      reconnecting_socket.puts(line_data.encode('utf-8'))
+      connect unless @reconnecting_socket
+      @reconnecting_socket.puts(line_data.encode('utf-8'))
     rescue SocketError => error
       if reconnect
         @reconnecting_socket = nil

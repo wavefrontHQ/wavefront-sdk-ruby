@@ -4,10 +4,10 @@
 
 module WavefrontMetricSender
   # ∆: INCREMENT
-  DELTA_PREFIX = '∆'  # '\u2206'
+  DELTA_PREFIX = '∆'.freeze # '\u2206'
 
   # Δ: GREEK CAPITAL LETTER DELTA
-  DELTA_PREFIX_2 = 'Δ'  # '\u0394'
+  DELTA_PREFIX_2 = 'Δ'.freeze # '\u0394'
 
   # Send Metric Data.
   # Wavefront Metrics Data format
