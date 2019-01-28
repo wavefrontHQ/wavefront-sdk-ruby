@@ -81,8 +81,8 @@ if __FILE__ == $0
   distribution_port = ARGV[4] ? ARGV[4] : nil
   tracing_port = ARGV[5] ? ARGV[5] : nil
 
-  wavefront_proxy_client = WavefrontProxyClient.new(proxy_host, metrics_port, distribution_port, tracing_port)
-  wavefront_direct_client = WavefrontDirectIngestionClient.new(wavefront_server, token)
+  wavefront_proxy_client = Wavefront::WavefrontProxyClient.new(proxy_host, metrics_port, distribution_port, tracing_port)
+  wavefront_direct_client = Wavefront::WavefrontDirectIngestionClient.new(wavefront_server, token)
   begin
     while true do
       send_metrics_via_proxy(wavefront_proxy_client)
