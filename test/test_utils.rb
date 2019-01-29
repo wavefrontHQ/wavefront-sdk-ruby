@@ -13,32 +13,32 @@ require_relative '../direct'
 class TestUtils < Test::Unit::TestCase
   # Test wavefront_ruby_sdk.common.utils.sanitize
   def test_sanitize
-    assert_equal('"hello"', WavefrontUtil.sanitize("hello"))
-    assert_equal('"hello-world"', WavefrontUtil.sanitize("hello world"))
-    assert_equal('"hello.world"', WavefrontUtil.sanitize("hello.world"))
-    assert_equal('"hello\\"world\\""', WavefrontUtil.sanitize('hello"world"'))
-    assert_equal('"hello\'world"', WavefrontUtil.sanitize("hello'world"))
+    assert_equal('"hello"', Wavefront::WavefrontUtil.sanitize("hello"))
+    assert_equal('"hello-world"', Wavefront::WavefrontUtil.sanitize("hello world"))
+    assert_equal('"hello.world"', Wavefront::WavefrontUtil.sanitize("hello.world"))
+    assert_equal('"hello\\"world\\""', Wavefront::WavefrontUtil.sanitize('hello"world"'))
+    assert_equal('"hello\'world"', Wavefront::WavefrontUtil.sanitize("hello'world"))
   end
 
   # Test wavefront_ruby_sdk.common.utils.metric_to_line_data
   def test_metric_to_line_data
     assert_equal("\"new-york.power.usage\" 42422.0 1493773500 source=\"localhost\" \"datacenter\"=\"dc1\"\n",
-                 WavefrontUtil.metric_to_line_data("new-york.power.usage", 42422, 1493773500,
+                 Wavefront::WavefrontUtil.metric_to_line_data("new-york.power.usage", 42422, 1493773500,
                                                    "localhost", {"datacenter"=>"dc1"},
                                                    "defaultSource"))
     # null timestamp
     assert_equal("\"new-york.power.usage\" 42422.0 source=\"localhost\" " +
                      "\"datacenter\"=\"dc1\"\n",
-                 WavefrontUtil.metric_to_line_data("new-york.power.usage", 42422, nil,
+                 Wavefront::WavefrontUtil.metric_to_line_data("new-york.power.usage", 42422, nil,
                                                    "localhost", {"datacenter"=>"dc1"},
                                                    "defaultSource"))
     # null tags
     assert_equal("\"new-york.power.usage\" 42422.0 1493773500 source=\"localhost\"\n",
-                 WavefrontUtil.metric_to_line_data("new-york.power.usage", 42422, 1493773500,
+                 Wavefront::WavefrontUtil.metric_to_line_data("new-york.power.usage", 42422, 1493773500,
                                                    "localhost", nil, "defaultSource"))
     # null tags and null timestamp
     assert_equal("\"new-york.power.usage\" 42422.0 source=\"localhost\"\n",
-                 WavefrontUtil.metric_to_line_data("new-york.power.usage", 42422, nil, "localhost",
+                 Wavefront::WavefrontUtil.metric_to_line_data("new-york.power.usage", 42422, nil, "localhost",
                                                    nil, "defaultSource"))
   end
 
@@ -46,29 +46,29 @@ class TestUtils < Test::Unit::TestCase
   def test_histogram_to_line_data
     assert_equal("!M 1493773500 #20 30.0 #10 5.1 \"request.latency\" source=\"appServer1\" " +
                      "\"region\"=\"us-west\"\n",
-                 WavefrontUtil.histogram_to_line_data("request.latency", [[30.0, 20], [5.1, 10]],
+                 Wavefront::WavefrontUtil.histogram_to_line_data("request.latency", [[30.0, 20], [5.1, 10]],
                                                       Set.new([MINUTE]), 1493773500, "appServer1",
                                                       {"region"=>"us-west"}, "defaultSource"))
     # null timestamp
     assert_equal("!M #20 30.0 #10 5.1 \"request.latency\" source=\"appServer1\" " +
                      "\"region\"=\"us-west\"\n",
-                 WavefrontUtil.histogram_to_line_data("request.latency", [[30.0, 20], [5.1, 10]],
+                 Wavefront::WavefrontUtil.histogram_to_line_data("request.latency", [[30.0, 20], [5.1, 10]],
                                                       Set.new([MINUTE]), nil, "appServer1",
                                                       {"region"=>"us-west"}, "defaultSource"))
     # null tags
     assert_equal("!M 1493773500 #20 30.0 #10 5.1 \"request.latency\" source=\"appServer1\"\n",
-                 WavefrontUtil.histogram_to_line_data("request.latency", [[30.0, 20], [5.1, 10]],
+                 Wavefront::WavefrontUtil.histogram_to_line_data("request.latency", [[30.0, 20], [5.1, 10]],
                                                       Set.new([MINUTE]), 1493773500, "appServer1",
                                                       nil,"defaultSource"))
     # empty centroids
     assert_raise(ArgumentError) {
-      WavefrontUtil.histogram_to_line_data("request.latency", [],
+      Wavefront::WavefrontUtil.histogram_to_line_data("request.latency", [],
                                            Set.new([MINUTE]), 1493773500,
                                            "appServer1", nil,
                                            "defaultSource")}
     # no histogram granularity specified
     assert_raise(ArgumentError){
-      WavefrontUtil.histogram_to_line_data("request.latency",
+      Wavefront::WavefrontUtil.histogram_to_line_data("request.latency",
                                            [[30.0, 20], [5.1, 10]], nil,
                                            1493773500, "appServer1", nil,
                                            "defaultSource")}
@@ -79,7 +79,7 @@ class TestUtils < Test::Unit::TestCase
                       "\"region\"=\"us-west\"\n" +
                       "!D 1493773500 #20 30.0 #10 5.1 \"request.latency\" source=\"appServer1\" " +
                       "\"region\"=\"us-west\"\n"],
-                 WavefrontUtil.histogram_to_line_data("request.latency", [[30.0, 20], [5.1, 10]],
+                 Wavefront::WavefrontUtil.histogram_to_line_data("request.latency", [[30.0, 20], [5.1, 10]],
                                                       Set.new([MINUTE, HOUR, DAY]), 1493773500,
                                                       "appServer1", {"region"=>"us-west"},
                                                       "defaultSource").split("\\n"))
@@ -93,7 +93,7 @@ class TestUtils < Test::Unit::TestCase
                      "followsFrom=5f64e538-9457-11e8-9eb6-529269fb1459 " +
                      "\"application\"=\"Wavefront\" " +
                      "\"http.method\"=\"GET\" 1493773500 343500\n",
-                 WavefrontUtil.tracing_span_to_line_data(
+                 Wavefront::WavefrontUtil.tracing_span_to_line_data(
                      "getAllUsers", 1493773500, 343500, "localhost",
                      "7b3bf470-9456-11e8-9eb6-529269fb1459",
                      "0313bafe-9457-11e8-9eb6-529269fb1459",
@@ -107,7 +107,7 @@ class TestUtils < Test::Unit::TestCase
                      "traceId=7b3bf470-9456-11e8-9eb6-529269fb1459 spanId=0313bafe-9457-11e8-9eb6-529269fb1459 " +
                      "parent=2f64e538-9457-11e8-9eb6-529269fb1459 \"application\"=\"Wavefront\" " +
                      "\"http.method\"=\"GET\" 1493773500 343500\n",
-                 WavefrontUtil.tracing_span_to_line_data(
+                 Wavefront::WavefrontUtil.tracing_span_to_line_data(
                      "getAllUsers", 1493773500, 343500, "localhost",
                      "7b3bf470-9456-11e8-9eb6-529269fb1459",
                      "0313bafe-9457-11e8-9eb6-529269fb1459",
@@ -121,7 +121,7 @@ class TestUtils < Test::Unit::TestCase
                      "traceId=7b3bf470-9456-11e8-9eb6-529269fb1459 spanId=0313bafe-9457-11e8-9eb6-529269fb1459 " +
                      "\"application\"=\"Wavefront\" " +
                      "\"http.method\"=\"GET\" 1493773500 343500\n",
-                 WavefrontUtil.tracing_span_to_line_data(
+                 Wavefront::WavefrontUtil.tracing_span_to_line_data(
                      "getAllUsers", 1493773500, 343500, "localhost",
                      "7b3bf470-9456-11e8-9eb6-529269fb1459",
                      "0313bafe-9457-11e8-9eb6-529269fb1459", nil, nil,
@@ -133,7 +133,7 @@ class TestUtils < Test::Unit::TestCase
                      "traceId=7b3bf470-9456-11e8-9eb6-529269fb1459 spanId=0313bafe-9457-11e8-9eb6-529269fb1459 " +
                      "\"application\"=\"Wavefront\" " +
                      "\"http.method\"=\"GET\" 1493773500 343500\n",
-                 WavefrontUtil.tracing_span_to_line_data(
+                 Wavefront::WavefrontUtil.tracing_span_to_line_data(
             "getAllUsers", 1493773500, 343500, "localhost",
             "7b3bf470-9456-11e8-9eb6-529269fb1459",
             "0313bafe-9457-11e8-9eb6-529269fb1459", nil, nil,
@@ -145,7 +145,7 @@ class TestUtils < Test::Unit::TestCase
     assert_equal("\"getAllUsers\" source=\"localhost\" " +
                      "traceId=7b3bf470-9456-11e8-9eb6-529269fb1459 spanId=0313bafe-9457-11e8-9eb6-529269fb1459 " +
                      "1493773500 343500\n",
-                 WavefrontUtil.tracing_span_to_line_data(
+                 Wavefront::WavefrontUtil.tracing_span_to_line_data(
             "getAllUsers", 1493773500, 343500, "localhost",
             "7b3bf470-9456-11e8-9eb6-529269fb1459",
             "0313bafe-9457-11e8-9eb6-529269fb1459",
