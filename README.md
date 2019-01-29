@@ -1,4 +1,4 @@
-# wavefront-sdk-ruby
+# wavefront-sdk-ruby  [![Build Status](https://travis-ci.com/yogeshprasad/wavefront-sdk-ruby.svg?branch=master)](https://travis-ci.com/yogeshprasad/wavefront-sdk-ruby)
 
 Wavefront by VMware SDK for Ruby is the core library for sending metrics, histograms and traces data from your Ruby application to Wavefront via proxy or direct ingestion.
 
