@@ -40,7 +40,7 @@ require_relative 'direct'
 # max_queue_size [Integer] Max Queue Size, size of internal data buffer for each data type, 50000 by default.
 # batch_size [Integer] Batch Size, amount of data sent by one api call, 10000 by default
 # flush_interval_seconds [Integer] Interval flush time, 5 secs by default
-client = WavefrontDirectIngestionClient.new(server, token)
+client = Wavefront::WavefrontDirectIngestionClient.new(server, token)
 
  ```
 
@@ -59,11 +59,11 @@ To create a `WavefrontProxyClient`, you instantiate it with the information it n
 require_relative 'proxy'
 # Construct Wavefront proxy client.
 #
-# paramhost [String] Hostname of the Wavefront proxy, 2878 by default
+# proxy_host [String] Hostname of the Wavefront proxy, 2878 by default
 # metrics_port [Integer] Metrics Port on which the Wavefront proxy is listening on
 # distribution_port [Integer] Distribution Port on which the Wavefront proxy is listening on
 # tracing_port [Integer] Tracing Port on which the Wavefront proxy is listening on
-client = WavefrontProxyClient.new(proxy_host, metrics_port, distribution_port, tracing_port)
+client = Wavefront::WavefrontProxyClient.new(proxy_host, metrics_port, distribution_port, tracing_port)
 
  ```
 

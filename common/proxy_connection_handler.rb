@@ -18,11 +18,14 @@ module Wavefront
       @address = address
       @port = port
       @reconnecting_socket = nil
+      @lock = Mutex.new
     end
 
     # Open a socket connection to the given address:port
     def connect
-      @reconnecting_socket = TCPSocket.open(@address, @port)
+      @lock.synchronize do
+        @reconnecting_socket = TCPSocket.open(@address, @port)
+      end
     end
 
     # Close socket if it's open now.
@@ -30,10 +33,12 @@ module Wavefront
       @reconnecting_socket.close if @reconnecting_socket
     end
 
+    # Returns number of failures
     def failure_count
       @failures.value
     end
 
+    # Increment failure count
     def increment_failure_count
       @failures.increment
     end
