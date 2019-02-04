@@ -24,7 +24,8 @@ module Wavefront
     # Open a socket connection to the given address:port
     def connect
       @lock.synchronize do
-        @reconnecting_socket = TCPSocket.open(@address, @port)
+        # Create a new socket connection if not already done
+        @reconnecting_socket = TCPSocket.open(@address, @port) if @reconnecting_socket.nil?
       end
     end
 
