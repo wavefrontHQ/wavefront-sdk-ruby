@@ -3,6 +3,8 @@
 # @author Yogesh Prasad Kurmi (ykurmi@vmware.com)
 
 require "zlib"
+require 'set'
+
 module Wavefront
   class WavefrontUtil
 

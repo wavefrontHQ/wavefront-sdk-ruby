@@ -2,13 +2,9 @@
 #
 # @author Yogesh Prasad Kurmi (ykurmi@vmware.com)
 
+require_relative '../../common/constants'
+
 module WavefrontMetricSender
-  # ∆: INCREMENT
-  DELTA_PREFIX = '∆'.freeze # '\u2206'
-
-  # Δ: GREEK CAPITAL LETTER DELTA
-  DELTA_PREFIX_2 = 'Δ'.freeze # '\u0394'
-
   # Send Metric Data.
   # Wavefront Metrics Data format
   #   <metricName> <metricValue> [<timestamp>] source=<source> [pointTags]
@@ -42,8 +38,8 @@ module WavefrontMetricSender
   # @param source [String] Source
   # @param tags [Hash] Tags
   def send_delta_counter(name, value, source, tags)
-    if !name.start_with?(DELTA_PREFIX) && !name.start_with?(DELTA_PREFIX_2)
-      name = DELTA_PREFIX + name
+    if !name.start_with?(Wavefront::DELTA_PREFIX) && !name.start_with?(Wavefront::DELTA_PREFIX_2)
+      name = Wavefront::DELTA_PREFIX + name
     end
     send_metric(name, value, None, source, tags)
   end
