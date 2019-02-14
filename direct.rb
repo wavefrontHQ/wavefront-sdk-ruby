@@ -124,7 +124,11 @@ module Wavefront
       data_chunks = WavefrontUtil.chunks(batch_line_data, @batch_size)
       data_chunks.each do |batch|
         # report once per batch
-        report(batch.join("\n") + "\n", data_format)
+        begin
+          report(batch.join("\n") + "\n", data_format)
+        rescue Exception => error
+          puts "Failed to report #{data_format} data points to wavefront. Error: #{error.message}"
+        end
       end
     end
 

@@ -38,12 +38,12 @@ module Wavefront
     #
     # @return tags [List<Hash>] List of tags
     def get_as_list
-      tags = [{APPLICATION_TAG_KEY => application},
-              {SERVICE_TAG_KEY => service},
-              {CLUSTER_TAG_KEY => cluster},
-              {SHARD_TAG_KEY => shard}]
+      tags = [[APPLICATION_TAG_KEY, application],
+              [SERVICE_TAG_KEY, service],
+              [CLUSTER_TAG_KEY, cluster],
+              [SHARD_TAG_KEY, shard]]
 
-      tags.push(custom_tags)
+      tags += custom_tags
     end
   end
 end
