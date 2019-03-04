@@ -3,7 +3,9 @@ language: ruby
 rvm:
   - 2.2
 
-before_install: gem install test-unit
+before_install:
+  - gem install test-unit
+  - gem install bundler -v 2.0.1
 
 script:
   - ruby test/test_utils.rb
