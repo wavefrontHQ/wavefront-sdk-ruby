@@ -4,8 +4,7 @@
 
 require 'securerandom'
 require 'set'
-require_relative 'proxy'
-require_relative 'direct'
+require 'wavefront/client'
 
 # Wavefront Metrics Data format
 #   <metricName> <metricValue> [<timestamp>] source=<source> [pointTags]

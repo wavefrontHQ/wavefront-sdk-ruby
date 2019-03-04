@@ -29,9 +29,9 @@ module Wavefront
     # @param tracing_port [Integer] Tracing Port on which the Wavefront proxy is
     # listening on
     def initialize(host, metrics_port, distribution_port, tracing_port)
-      @metrics_proxy_connection_handler =  metrics_port.nil? ? nil : ProxyConnectionHandler.new(host, metrics_port)
-      @histogram_proxy_connection_handler = distribution_port.nil? ? nil : ProxyConnectionHandler.new(host, distribution_port)
-      @tracing_proxy_connection_handler = tracing_port.nil? ? nil : ProxyConnectionHandler.new(host, tracing_port)
+      @metrics_proxy_connection_handler =  metrics_port.nil? ? nil : ProxyConnectionHandler.new(host, metrics_port.to_i)
+      @histogram_proxy_connection_handler = distribution_port.nil? ? nil : ProxyConnectionHandler.new(host, distribution_port.to_i)
+      @tracing_proxy_connection_handler = tracing_port.nil? ? nil : ProxyConnectionHandler.new(host, tracing_port.to_i)
       @default_source = Socket.gethostname
     end
 

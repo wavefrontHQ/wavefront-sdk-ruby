@@ -6,9 +6,9 @@ require "test/unit"
 require 'set'
 require 'securerandom'
 
-require_relative '../common/utils'
-require_relative '../proxy'
-require_relative '../direct'
+require_relative '../lib/wavefront/client/common/utils'
+require_relative '../lib/wavefront/client/proxy'
+require_relative '../lib/wavefront/client/direct'
 
 class TestUtils < Test::Unit::TestCase
   # Test wavefront_ruby_sdk.common.utils.sanitize

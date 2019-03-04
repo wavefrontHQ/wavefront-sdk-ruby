@@ -16,7 +16,7 @@ module Wavefront
     # @param cluster [String] Cluster Name
     # @param shard [String] Shard Name
     # @param custom_tags [List<Hash>] List of pairs of custom tags
-    def initialize(application, service, cluster: nil, shard: nil, custom_tags: nil)
+    def initialize(application, service, cluster: nil, shard: nil, custom_tags: {})
 
       if application.nil?
         raise ArgumentError, 'Missing "application" parameter in ApplicationTags!'
@@ -34,16 +34,16 @@ module Wavefront
 
     end
 
-    # Get all tags as a list
+    # Get all tags as a dict
     #
-    # @return tags [List<Hash>] List of tags
-    def get_as_list
-      tags = [[APPLICATION_TAG_KEY, application],
-              [SERVICE_TAG_KEY, service],
-              [CLUSTER_TAG_KEY, cluster],
-              [SHARD_TAG_KEY, shard]]
+    # @return tags [Hash] List of tags
+    def as_dict
+      tags = {APPLICATION_TAG_KEY=> application,
+              SERVICE_TAG_KEY=> service,
+              CLUSTER_TAG_KEY=> cluster,
+              SHARD_TAG_KEY=> shard}
 
-      tags += custom_tags
+      tags.update(custom_tags)
     end
   end
 end
