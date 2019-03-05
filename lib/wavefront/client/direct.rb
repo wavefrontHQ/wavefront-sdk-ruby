@@ -11,6 +11,7 @@ require_relative 'common/atomic_integer'
 require_relative 'entities/metrics/wavefront_metric_sender'
 require_relative 'entities/histogram/wavefront_histogram_sender'
 require_relative 'entities/tracing/wavefront_tracing_span_sender'
+require_relative 'common/constants'
 
 module Wavefront
 
@@ -18,10 +19,6 @@ module Wavefront
     include WavefrontMetricSender
     include WavefrontHistogramSender
     include WavefrontTracingSpanSender
-
-    WAVEFRONT_METRIC_FORMAT = 'wavefront'.freeze
-    WAVEFRONT_HISTOGRAM_FORMAT = 'histogram'.freeze
-    WAVEFRONT_TRACING_SPAN_FORMAT = 'trace'.freeze
 
     # Construct Direct Client.
     #
@@ -127,7 +124,11 @@ module Wavefront
       data_chunks = WavefrontUtil.chunks(batch_line_data, @batch_size)
       data_chunks.each do |batch|
         # report once per batch
-        report(batch.join("\n") + "\n", data_format)
+        begin
+          report(batch.join("\n") + "\n", data_format)
+        rescue Exception => error
+          puts "Failed to report #{data_format} data points to wavefront. Error: #{error.message}"
+        end
       end
     end
 

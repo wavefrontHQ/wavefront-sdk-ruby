@@ -3,6 +3,8 @@
 # @author Yogesh Prasad Kurmi (ykurmi@vmware.com)
 
 require "zlib"
+require 'set'
+
 module Wavefront
   class WavefrontUtil
 
@@ -10,6 +12,7 @@ module Wavefront
     # @param name [String]
     # @return [Boolean]
     def self.is_blank(name)
+      name = name.to_s
       name.nil? || name.strip.empty?  ? true : false
     end
 
@@ -36,8 +39,8 @@ module Wavefront
     #
     # @param string [String] string to be sanitized
     # @return [String] Sanitized string
-    def self.sanitize(string)
-      whitespace_sanitized = string.gsub " ", "-"
+    def self.sanitize(item)
+      whitespace_sanitized = item.to_s.gsub " ", "-"
       # TODO
       if whitespace_sanitized.include? "\""
         "\"" + whitespace_sanitized.gsub!(/\"/, "\\\\\"") + "\""
@@ -170,11 +173,13 @@ module Wavefront
         tag_set = Set[]
         tags.each do |key, value|
           raise(ArgumentError, 'Span tag key cannot be blank') if is_blank(key)
-          raise(ArgumentError, 'Span tag value cannot be blank') if is_blank(value)
-          cur_tag = sanitize(key) + "=" + sanitize(value)
-          unless tag_set.include? cur_tag
-            str_builder.push(cur_tag)
-            tag_set.add(cur_tag)
+          [value].each do |item|
+            raise(ArgumentError, 'Span tag value cannot be blank') if is_blank(item)
+            cur_tag = sanitize(key) + "=" + sanitize(item)
+            unless tag_set.include? cur_tag
+              str_builder.push(cur_tag)
+              tag_set.add(cur_tag)
+            end
           end
         end
       end

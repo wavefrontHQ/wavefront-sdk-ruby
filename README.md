@@ -2,6 +2,13 @@
 
 Wavefront by VMware SDK for Ruby is the core library for sending metrics, histograms and traces data from your Ruby application to Wavefront via proxy or direct ingestion.
 
+## Requirements and Installation
+Ruby version >= 2.3.0 is supported.
+
+```
+gem install wavefront-client
+```
+
 ## Set Up a Wavefront Client
 You can choose to send metrics, histograms, or traces data from your application to the Wavefront service using one of the following techniques:
 * Use [direct ingestion](https://docs.wavefront.com/direct_ingestion.html) to send the data directly to the Wavefront service. This is the simplest way to get up and running quickly.
@@ -32,7 +39,7 @@ You can optionally pass below parameters to tune the following ingestion propert
 Together, the batch size and flush interval control the maximum theoretical throughput of the `WavefrontSender`. You should override the defaults _only_ to set higher values.
 
 ```ruby
-require_relative 'direct'
+require 'wavefront/client/direct'
 # Construct Wavefront direct ingestion client.
 #
 # server [String] Server address, Example: https://INSTANCE.wavefront.com
@@ -56,7 +63,7 @@ To create a `WavefrontProxyClient`, you instantiate it with the information it n
 
 
 ```ruby
-require_relative 'proxy'
+require 'wavefront/client/proxy'
 # Construct Wavefront proxy client.
 #
 # proxy_host [String] Hostname of the Wavefront proxy, 2878 by default
@@ -66,6 +73,13 @@ require_relative 'proxy'
 client = Wavefront::WavefrontProxyClient.new(proxy_host, metrics_port, distribution_port, tracing_port)
 
  ```
+ **Note:** When you [set up a Wavefront proxy](https://github.com/wavefrontHQ/java/tree/master/proxy#set-up-a-wavefront-proxy) on the specified proxy host, you specify the port it will listen to for each type of data to be sent. The `WavefrontProxyClient` must send data to the same ports that the Wavefront proxy listens to. Consequently, the port-related parameters must specify the same port numbers as the corresponding proxy configuration properties: 
+
+| `WavefrontProxyClient()` parameter | Corresponding property in `wavefront.conf` |
+| ----- | -------- |
+| `metrics_port` | `pushListenerPorts=` |
+| `distribution_port` | `histogramDistListenerPorts=` |
+| `tracing_port` | `traceListenerPorts=` |
 
 ## Send Data to Wavefront
 
