@@ -109,7 +109,7 @@ module Wavefront
         unless [200, 202].include? response.code.to_i
           puts "Error reporting points, Response #{response.code} #{response.message}"
         end
-      rescue Exception => error
+      rescue => error
         @failures.increment
         raise error
       end
@@ -126,7 +126,7 @@ module Wavefront
         # report once per batch
         begin
           report(batch.join("\n") + "\n", data_format)
-        rescue Exception => error
+        rescue => error
           puts "Failed to report #{data_format} data points to wavefront. Error: #{error.message}"
         end
       end

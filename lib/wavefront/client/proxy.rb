@@ -72,7 +72,7 @@ module Wavefront
         line_data = WavefrontUtil.metric_to_line_data(name, value, timestamp, source,
                                                       tags, @default_source)
         @metrics_proxy_connection_handler.send_data(line_data)
-      rescue Exception => error
+      rescue => error
         @metrics_proxy_connection_handler.increment_failure_count
         raise error
       end
@@ -87,7 +87,7 @@ module Wavefront
       metrics.each do |metric|
         begin
           @metrics_proxy_connection_handler.send_data(metric)
-        rescue Exception => error
+        rescue => error
           @metrics_proxy_connection_handler.increment_failure_count()
           raise error
         end
@@ -116,7 +116,7 @@ module Wavefront
         line_data = WavefrontUtil.histogram_to_line_data(name, centroids, histogram_granularities,
                                                         timestamp, source, tags, @default_source)
         @histogram_proxy_connection_handler.send_data(line_data)
-      rescue Exception => error
+      rescue => error
         @histogram_proxy_connection_handler.increment_failure_count()
         raise error
       end
@@ -132,7 +132,7 @@ module Wavefront
       distributions.each do |distribution|
         begin
           @histogram_proxy_connection_handler.send_data(distribution)
-        rescue Exception => error
+        rescue => error
           @histogram_proxy_connection_handler.increment_failure_count()
           raise error
         end
@@ -170,7 +170,7 @@ module Wavefront
                 name, start_millis, duration_millis, source, trace_id, span_id,
                 parents, follows_from, tags, span_logs, @default_source)
         @tracing_proxy_connection_handler.send_data(line_data)
-      rescue Exception => error
+      rescue => error
         @tracing_proxy_connection_handler.increment_failure_count()
         raise error
       end
@@ -186,7 +186,7 @@ module Wavefront
       spans.each do |span|
         begin
           @tracing_proxy_connection_handler.send_data(span)
-        rescue Exception => error
+        rescue => error
           @tracing_proxy_connection_handler.increment_failure_count()
           raise error
         end
