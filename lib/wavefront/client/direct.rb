@@ -65,7 +65,7 @@ module Wavefront
 
     def schedule_task
       # Flush every 5 secs by default
-      while true && !@closed do
+      until @closed do
         sleep(@flush_interval_seconds)
         flush_now
       end
@@ -107,11 +107,11 @@ module Wavefront
 
         response = https.request(request)
         unless [200, 202].include? response.code.to_i
-          puts "Error reporting points, Response #{response.code} #{response.message}"
+          warn "Error reporting points, Response #{response.code} #{response.message}"
         end
-      rescue => error
+      rescue StandardError => e
         @failures.increment
-        raise error
+        raise e
       end
     end
 
@@ -126,8 +126,8 @@ module Wavefront
         # report once per batch
         begin
           report(batch.join("\n") + "\n", data_format)
-        rescue => error
-          puts "Failed to report #{data_format} data points to wavefront. Error: #{error.message}"
+        rescue StandardError => e
+          warn "Failed to report #{data_format} data points to wavefront. Error: #{e}\n\t#{e.backtrace.join("\n\t")}"
         end
       end
     end
