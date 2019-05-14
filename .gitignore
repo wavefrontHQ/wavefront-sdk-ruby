@@ -1,0 +1,5 @@
+.bundle/*
+coverage/*
+test/coverage/*
+vendor/*
+Gemfile.lock

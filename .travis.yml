@@ -1,14 +1,15 @@
 language: ruby
 
 rvm:
+  - 2.3
   - 2.6
 
 before_install:
-  - gem install test-unit
-  - gem install bundler -v 2.0.1
+  - gem install bundler -v 2.0.1 --no-document
 
 script:
-  - ruby test/test_utils.rb
+  - bundler exec ruby test/test_utils.rb
+  - bundler exec ruby test/test_hb.rb
 
 notifications:
   email:
