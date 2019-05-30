@@ -1,28 +1,35 @@
+# frozen_string_literal: true
+
 # Utils module contains useful function for preparing and processing data.
 #
 # @author Yogesh Prasad Kurmi (ykurmi@vmware.com)
 
-require "zlib"
+require 'zlib'
 require 'set'
+require 'concurrent'
 
 module Wavefront
-  class WavefrontUtil
+  @@wflog = Logger.new(STDOUT)
 
-    # Returns true if the name is empty otherwise false.
+  def self.logger
+    @@wflog
+  end
+
+  class WavefrontUtil
+    # Returns true if the string is empty otherwise false.
     # @param name [String]
     # @return [Boolean]
-    def self.is_blank(name)
-      name = name.to_s
-      name.nil? || name.strip.empty?  ? true : false
+    def self.blank?(str) # only works on strings
+      str.nil? || str.to_s.strip.empty?
     end
 
     # Split list of data into chunks with fixed batch size.
     #
     # @param data_list [List] List of data
-    # @param batch_size [Integer] Batch size of each chunk
-    # @return [List] an list of chunks
+    # @param batch_size [Integer] Size of each chunk
+    # @return [Enumerable] a list of chunks
     def self.chunks(data_list, batch_size)
-      data_list.each_slice(batch_size).to_a
+      data_list.each_slice(batch_size)
     end
 
     # Compress data using GZIP.
@@ -30,7 +37,7 @@ module Wavefront
     # @param data [String] Data to compress
     # @return Compressed data
     def self.gzip_compress(data)
-      gzip = Zlib::GzipWriter.new(StringIO.new,Zlib::BEST_COMPRESSION)
+      gzip = Zlib::GzipWriter.new(StringIO.new, Zlib::BEST_COMPRESSION)
       gzip << data.encode('utf-8')
       gzip.close.string
     end
@@ -40,13 +47,13 @@ module Wavefront
     # @param string [String] string to be sanitized
     # @return [String] Sanitized string
     def self.sanitize(item)
-      whitespace_sanitized = item.to_s.gsub " ", "-"
+      whitespace_sanitized = item.to_s.gsub ' ', '-'
       # TODO
-      if whitespace_sanitized.include? "\""
-        "\"" + whitespace_sanitized.gsub!(/\"/, "\\\\\"") + "\""
+      if whitespace_sanitized.include? '"'
+        '"' + whitespace_sanitized.gsub!(/\"/, '\\\\"') + '"'
       end
 
-      "\"" + whitespace_sanitized + "\""
+      '"' + whitespace_sanitized + '"'
     end
 
     # Metric Data to String.
@@ -64,21 +71,14 @@ module Wavefront
     # @param default_source [String]
     # @return  [String] String data of metrics
     def self.metric_to_line_data(name, value, timestamp, source, tags, default_source)
-      raise(ArgumentError, 'Metrics name cannot be blank') if is_blank(name)
-      source = default_source if is_blank(source)
-      str_builder = [sanitize(name), value.to_f.to_s]
-      str_builder.push(timestamp.to_i.to_s) if timestamp
-      str_builder.push("source=" + sanitize(source))
+      raise(ArgumentError, 'Metrics name cannot be blank') if blank?(name)
 
-      unless tags.nil?
-        tags.each do |key, val|
-          raise(ArgumentError,'Metric point tag key cannot be blank') if is_blank(key)
-          raise(ArgumentError, 'Metric point tag value cannot be blank') if is_blank(val)
-          str_builder.push(sanitize(key) + '=' + sanitize(val))
-        end
-      end
+      source = sanitize(blank?(source) ? default_source : source)
 
-      str_builder.join(' ') + "\n"
+      core = ["#{sanitize(name)} #{value&.to_f || 0} #{timestamp&.to_i}".rstrip, "source=#{source}"]
+      tags2 = make_tags(tags)
+
+      (core + tags2).join(' ') + "\n"
     end
 
     # Wavefront Histogram Data format.
@@ -97,34 +97,23 @@ module Wavefront
     # @param default_source [String] Default Source
     # @return [String] String data of Histogram
     def self.histogram_to_line_data(name, centroids, histogram_granularities, timestamp, source, tags, default_source)
-      raise(ArgumentError, 'Histogram name cannot be blank') if is_blank(name)
-      raise(ArgumentError, 'Histogram granularities cannot be null or empty') if
-          histogram_granularities == nil ||  histogram_granularities.empty?
-      raise(ArgumentError, 'A distribution should have at least one centroid') if
-          centroids == nil ||  centroids.empty?
-      source = default_source if is_blank(source)
+      raise(ArgumentError, 'Histogram name cannot be blank') if blank?(name)
+      raise(ArgumentError, 'Histogram granularities cannot be null or empty') if histogram_granularities.nil? || histogram_granularities.empty?
+      raise(ArgumentError, 'Histogram should have at least one centroid') if
+          centroids.nil? || centroids.empty?
 
-      line_builder = []
+      source = sanitize(blank?(source) ? default_source : source)
 
-      histogram_granularities.each do |histogram_granularity|
-        str_builder = [histogram_granularity]
-        str_builder.push(timestamp.to_i.to_s) if timestamp
-        centroids.each do |centroid_1, centroid_2|
-          str_builder.push("#" + centroid_2.to_s)
-          str_builder.push(centroid_1.to_s)
-        end
-        str_builder.push(sanitize(name))
-        str_builder.push("source=" + sanitize(source))
-        unless tags.nil?
-          tags.each do |key, val|
-            raise(ArgumentError, 'Histogram tag key cannot be blank') if is_blank(key)
-            raise(ArgumentError, 'Histogram tag value cannot be blank') if is_blank(val)
-            str_builder.push(sanitize(key) + '=' + sanitize(val))
-          end
-        end
-        line_builder.push(str_builder.join(' '))
-      end
-      line_builder.join("\n") + "\n"
+      cen_str = Array(centroids)
+                .reject { |p| p.nil? || p.empty? }
+                .map { |mean, count| "##{count} #{mean}" }
+                .join(' ')
+
+      tags2 = make_tags(tags).join(' ')
+
+      all = "#{timestamp} #{cen_str} #{sanitize(name)} source=#{source} #{tags2}".strip
+
+      Array(histogram_granularities).map { |g| "#{g} #{all}\n" }.join
     end
 
     #  Wavefront Tracing Span Data format.
@@ -151,41 +140,130 @@ module Wavefront
     # @param default_source [String] Default Source
     # @return [String] String data of tracing span
     def self.tracing_span_to_line_data(name, start_millis, duration_millis, source,
-                                  trace_id, span_id, parents, follows_from, tags,
-                                  span_logs, default_source)
-      raise(ArgumentError, 'Span name cannot be blank') if is_blank(name)
-      source = default_source if is_blank(source)
-      str_builder = [sanitize(name),
-                    "source=" + sanitize(source),
-                    "traceId=" + trace_id.to_s,
-                    "spanId=" + span_id.to_s]
-      unless parents.nil?
-        parents.each do |uuid|
-          str_builder.push("parent=" + uuid.to_s)
+                                       trace_id, span_id, parents, follows_from, tags,
+                                       _span_logs, default_source)
+      raise(ArgumentError, 'Span name cannot be blank') if blank?(name)
+      raise(ArgumentError, 'Trace ID cannot be blank') if blank?(trace_id)
+      raise(ArgumentError, 'Span ID cannot be blank') if blank?(span_id)
+
+      source = sanitize(blank?(source) ? default_source : source)
+
+      parents2 = Array(parents)
+                 .reject { |p| blank?(p) }
+                 .map { |p| "parent=#{p}" }
+
+      follows2 = Array(follows_from)
+                 .reject { |p| blank?(p) }
+                 .map { |p| "followsFrom=#{p}" }
+
+      tags2 = make_tags(tags)
+
+      core = Array("source=#{source} traceId=#{trace_id} spanId=#{span_id}")
+      all_tags = (core + parents2 + follows2 + tags2).join(' ')
+
+      "#{sanitize(name)} #{all_tags} #{start_millis&.to_i} #{duration_millis&.to_i || 0}\n"
+    end
+
+    private
+
+    def self.make_tags(tags)
+      Array(tags)
+        .map do |k, v| # only use first two values
+        raise(ArgumentError, 'Span tag key cannot be blank') if blank?(k)
+        raise(ArgumentError, 'Span tag value cannot be blank') if blank?(v)
+
+        "#{sanitize(k)}=#{sanitize(v)}"
+      end
+        .uniq # remove duplicate tags
+    end
+  end
+
+  class ConstantTickTimer
+    def initialize(interval, run_now = false, executor = Concurrent::SingleThreadExecutor.new, &block)
+      raise ArgumentError 'interval must be > 0' if interval <= 0
+      raise ArgumentError 'block is mandatory' if block.nil?
+
+      @cond = Concurrent::Event.new
+      @st = executor
+
+      nex = run_now ? 0 : interval
+
+      task = lambda do # start the timer
+        @cond.wait(nex)
+        return if @cond.set?
+
+        begin
+          s = Concurrent.monotonic_time
+          block.call
+        rescue StandardError => e
+          Wavefront.logger.warn "Error in Timer Task: #{e}\n\t#{e.backtrace.join("\n\t")}"
+        ensure
+          d = Concurrent.monotonic_time - s
+          r = (d / interval).floor + 1
+          nex = r * interval - d
+          @st.post &task # check error?
         end
       end
-      unless follows_from.nil?
-        follows_from.each do |uuid|
-          str_builder.push("followsFrom=" + uuid.to_s)
+
+      @st.post &task # check error?
+    end
+
+    def stop(timeout = 10)
+      @st.shutdown
+      @cond.set
+      @st.wait_for_termination(timeout)
+      unless @st.shutdown?
+        @st.kill
+        Wavefront.logger.warn 'Warning: Timer killed because stop exceeded timeout'
+      end
+    end
+  end
+
+  class EarlyTickTimer
+    def initialize(interval, run_now = false, executor = Concurrent::SingleThreadExecutor.new, &block)
+      raise ArgumentError 'interval must be > 0' if interval <= 0
+      raise ArgumentError 'block is mandatory' if block.nil?
+
+      @cond = Concurrent::Event.new
+      @st = executor
+
+      nex = run_now ? 0.0001 : interval
+
+      task = lambda do # start the timer
+        @cond.wait(nex)
+        return if @cond.set?
+
+        begin
+          s = Concurrent.monotonic_time
+          block.call
+        rescue StandardError => e
+          Wavefront.logger.warn "Error in Timer Task: #{e}\n\t#{e.backtrace.join("\n\t")}"
+        ensure
+          d = Concurrent.monotonic_time - s - interval
+          nex = d >= 0 ? 0.00001 : -d
+          @st.post &task # check error?
         end
       end
-      unless tags.nil?
-        tag_set = Set[]
-        tags.each do |key, value|
-          raise(ArgumentError, 'Span tag key cannot be blank') if is_blank(key)
-          [value].each do |item|
-            raise(ArgumentError, 'Span tag value cannot be blank') if is_blank(item)
-            cur_tag = sanitize(key) + "=" + sanitize(item)
-            unless tag_set.include? cur_tag
-              str_builder.push(cur_tag)
-              tag_set.add(cur_tag)
-            end
-          end
-        end
+
+      @st.post &task # check error?
+    end
+
+    def stop(timeout = 10)
+      @st.shutdown
+      @cond.set
+      @st.wait_for_termination(timeout)
+      unless @st.shutdown?
+        @st.kill
+        Wavefront.logger.warn 'Warning: Timer killed because stop exceeded timeout'
       end
-      str_builder.push(start_millis.to_s)
-      str_builder.push(duration_millis.to_s)
-      str_builder.join(' ') + "\n"
+    end
+  end
+
+  class SendError < StandardError
+    attr_reader :cause
+    def initialize(error)
+      @cause = error
+      super(@cause.to_s)
     end
   end
 end

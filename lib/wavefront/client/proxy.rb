@@ -1,14 +1,17 @@
+# frozen_string_literal: true
+
 # Wavefront Proxy Client.
 #
 # @author Yogesh Prasad Kurmi (ykurmi@vmware.com)
 
 require_relative 'common/proxy_connection_handler'
 require_relative 'common/utils'
-require_relative 'entities/histogram/histogram_granularity'
 require_relative 'entities/metrics/wavefront_metric_sender'
 require_relative 'entities/histogram/wavefront_histogram_sender'
 require_relative 'entities/tracing/wavefront_tracing_span_sender'
 
+require_relative 'internal-metrics/registry'
+require_relative 'internal-metrics/reporter'
 
 # Proxy that sends data directly via TCP.
 # User should probably attempt to reconnect when exceptions are thrown from
@@ -18,6 +21,8 @@ module Wavefront
     include WavefrontMetricSender
     include WavefrontHistogramSender
     include WavefrontTracingSpanSender
+
+    attr_reader :default_source
 
     # Construct Proxy Client.
     #
@@ -29,17 +34,38 @@ module Wavefront
     # @param tracing_port [Integer] Tracing Port on which the Wavefront proxy is
     # listening on
     def initialize(host, metrics_port, distribution_port, tracing_port)
-      @metrics_proxy_connection_handler =  metrics_port.nil? ? nil : ProxyConnectionHandler.new(host, metrics_port.to_i)
-      @histogram_proxy_connection_handler = distribution_port.nil? ? nil : ProxyConnectionHandler.new(host, distribution_port.to_i)
-      @tracing_proxy_connection_handler = tracing_port.nil? ? nil : ProxyConnectionHandler.new(host, tracing_port.to_i)
+      @internal_store = InternalMetricsRegistry.new(SDK_METRIC_PREFIX_PROXY, PROCESS_TAG_KEY => Process.pid)
       @default_source = Socket.gethostname
+
+      # internal metrics
+      @points_discarded = @internal_store.counter('points.discarded')
+      @points_valid = @internal_store.counter('points.valid')
+      @points_invalid = @internal_store.counter('points.invalid')
+      @points_dropped = @internal_store.counter('points.dropped')
+
+      @histograms_discarded = @internal_store.counter('histograms.discarded')
+      @histograms_valid = @internal_store.counter('histograms.valid')
+      @histograms_invalid = @internal_store.counter('histograms.invalid')
+      @histograms_dropped = @internal_store.counter('histograms.dropped')
+
+      @spans_discarded = @internal_store.counter('spans.discarded')
+      @spans_valid = @internal_store.counter('spans.valid')
+      @spans_invalid = @internal_store.counter('spans.invalid')
+      @spans_dropped = @internal_store.counter('spans.dropped')
+
+      @metrics_proxy_connection_handler = ProxyConnectionHandler.new(host, metrics_port, @internal_store) unless metrics_port.nil?
+      @histogram_proxy_connection_handler = ProxyConnectionHandler.new(host, distribution_port, @internal_store) unless distribution_port.nil?
+      @tracing_proxy_connection_handler = ProxyConnectionHandler.new(host, tracing_port, @internal_store) unless tracing_port.nil?
+
+      @internal_reporter = InternalReporter.new(self, @internal_store)
     end
 
     # Close all proxy connections.
     def close
-      @metrics_proxy_connection_handler.close() if @metrics_proxy_connection_handler
-      @histogram_proxy_connection_handler.close() if @histogram_proxy_connection_handler
-      @tracing_proxy_connection_handler.close() if @tracing_proxy_connection_handler
+      @metrics_proxy_connection_handler&.close
+      @histogram_proxy_connection_handler&.close
+      @tracing_proxy_connection_handler&.close
+      @internal_reporter.stop
     end
 
     # Get Total Failure Count for all connections.
@@ -68,13 +94,26 @@ module Wavefront
     # @param source [String] Source
     # @param tags [Hash] Tags
     def send_metric(name, value, timestamp, source, tags)
+      if @metrics_proxy_connection_handler.nil?
+        @points_discarded.inc
+        Wavefront.logger.warn("Can't send data to Wavefront. Please configure metrics port for Wavefront proxy")
+        return
+      end
+
       begin
         line_data = WavefrontUtil.metric_to_line_data(name, value, timestamp, source,
                                                       tags, @default_source)
+        @points_valid.inc
+      rescue StandardError => e
+        @points_invalid
+        raise e
+      end
+
+      begin
         @metrics_proxy_connection_handler.send_data(line_data)
-      rescue => error
-        @metrics_proxy_connection_handler.increment_failure_count
-        raise error
+      rescue StandardError => e
+        @points_dropped.inc
+        raise e
       end
     end
 
@@ -84,12 +123,22 @@ module Wavefront
     # common.utils.metric_to_line_data()
     # @param metrics [List<String>] List of string spans data
     def send_metric_now(metrics)
+      if @metrics_proxy_connection_handler.nil?
+        @points_discarded.inc(metrics.size)
+        Wavefront.logger.warn("Can't send data to Wavefront. Please configure metrics port for Wavefront proxy")
+        return
+      end
+      if metrics.nil? || metrics.empty?
+        @points_invalid.inc
+        raise(ArgumentError, 'point must be non-null and in WF data format')
+      end
+
       metrics.each do |metric|
         begin
           @metrics_proxy_connection_handler.send_data(metric)
-        rescue => error
-          @metrics_proxy_connection_handler.increment_failure_count()
-          raise error
+        rescue StandardError => e
+          @points_dropped.inc
+          raise e
         end
       end
     end
@@ -112,13 +161,26 @@ module Wavefront
     # @param tags [Hash] Tags
     def send_distribution(name, centroids, histogram_granularities, timestamp,
                           source, tags)
+      if @histogram_proxy_connection_handler.nil?
+        @histograms_discarded.inc
+        Wavefront.logger.warn("Can't send data to Wavefront. Please configure histogram distribution port for Wavefront proxy")
+        return
+      end
+
       begin
         line_data = WavefrontUtil.histogram_to_line_data(name, centroids, histogram_granularities,
-                                                        timestamp, source, tags, @default_source)
+                                                         timestamp, source, tags, @default_source)
+        @histograms_valid.inc
+      rescue StandardError => e
+        @histograms_invalid
+        raise e
+      end
+
+      begin
         @histogram_proxy_connection_handler.send_data(line_data)
-      rescue => error
-        @histogram_proxy_connection_handler.increment_failure_count()
-        raise error
+      rescue StandardError => e
+        @histograms_dropped.inc
+        raise e
       end
     end
 
@@ -129,12 +191,23 @@ module Wavefront
     #
     # @param distributions [List<String>] List of string distribution data
     def send_distribution_now(distributions)
+      if @histogram_proxy_connection_handler.nil?
+        @histograms_discarded.inc(distributions.size)
+        Wavefront.logger.warn("Can't send data to Wavefront. Please configure histogram distribution port for Wavefront proxy")
+        return
+      end
+
+      if distributions.nil? || distributions.empty?
+        @histograms_invalid.inc
+        raise(ArgumentError, 'histogram distribution must be non-null and in WF data format')
+      end
+
       distributions.each do |distribution|
         begin
           @histogram_proxy_connection_handler.send_data(distribution)
-        rescue => error
-          @histogram_proxy_connection_handler.increment_failure_count()
-          raise error
+        rescue StandardError => e
+          @histograms_dropped.inc
+          raise e
         end
       end
     end
@@ -165,14 +238,27 @@ module Wavefront
     # @param span_logs [] Span Log
     def send_span(name, start_millis, duration_millis, source, trace_id,
                   span_id, parents, follows_from, tags, span_logs)
+      if @tracing_proxy_connection_handler.nil?
+        @spans_discarded.inc
+        Wavefront.logger.warn("Can't send data to Wavefront. Please configure tracing port for Wavefront proxy")
+        return
+      end
       begin
         line_data = WavefrontUtil.tracing_span_to_line_data(
-                name, start_millis, duration_millis, source, trace_id, span_id,
-                parents, follows_from, tags, span_logs, @default_source)
+          name, start_millis, duration_millis, source, trace_id, span_id,
+          parents, follows_from, tags, span_logs, @default_source
+        )
+        @spans_valid.inc
+      rescue StandardError => e
+        @spans_invalid
+        raise e
+      end
+
+      begin
         @tracing_proxy_connection_handler.send_data(line_data)
-      rescue => error
-        @tracing_proxy_connection_handler.increment_failure_count()
-        raise error
+      rescue StandardError => e
+        @spans_dropped.inc
+        raise e
       end
     end
 
@@ -183,12 +269,21 @@ module Wavefront
     #
     # @param spans [List<String>] List of string tracing span data
     def send_span_now(spans)
+      if @tracing_proxy_connection_handler.nil?
+        @spans_discarded.inc(spans.size)
+        Wavefront.logger.warn("Can't send data to Wavefront. Please configure tracing port for Wavefront proxy")
+        return
+      end
+      if spans.nil? || spans.empty?
+        @histograms_invalid.inc
+        raise(ArgumentError, 'traces must be non-null and in WF data format')
+      end
       spans.each do |span|
         begin
           @tracing_proxy_connection_handler.send_data(span)
-        rescue => error
-          @tracing_proxy_connection_handler.increment_failure_count()
-          raise error
+        rescue StandardError => e
+          @spans_dropped.inc
+          raise e
         end
       end
     end

@@ -47,23 +47,23 @@ class TestUtils < Test::Unit::TestCase
     assert_equal("!M 1493773500 #20 30.0 #10 5.1 \"request.latency\" source=\"appServer1\" " +
                      "\"region\"=\"us-west\"\n",
                  Wavefront::WavefrontUtil.histogram_to_line_data("request.latency", [[30.0, 20], [5.1, 10]],
-                                                      Set.new([MINUTE]), 1493773500, "appServer1",
+                                                      Set.new([Wavefront::MINUTE]), 1493773500, "appServer1",
                                                       {"region"=>"us-west"}, "defaultSource"))
     # null timestamp
     assert_equal("!M #20 30.0 #10 5.1 \"request.latency\" source=\"appServer1\" " +
                      "\"region\"=\"us-west\"\n",
                  Wavefront::WavefrontUtil.histogram_to_line_data("request.latency", [[30.0, 20], [5.1, 10]],
-                                                      Set.new([MINUTE]), nil, "appServer1",
+                                                      Set.new([Wavefront::MINUTE]), nil, "appServer1",
                                                       {"region"=>"us-west"}, "defaultSource"))
     # null tags
     assert_equal("!M 1493773500 #20 30.0 #10 5.1 \"request.latency\" source=\"appServer1\"\n",
                  Wavefront::WavefrontUtil.histogram_to_line_data("request.latency", [[30.0, 20], [5.1, 10]],
-                                                      Set.new([MINUTE]), 1493773500, "appServer1",
+                                                      Set.new([Wavefront::MINUTE]), 1493773500, "appServer1",
                                                       nil,"defaultSource"))
     # empty centroids
     assert_raise(ArgumentError) {
       Wavefront::WavefrontUtil.histogram_to_line_data("request.latency", [],
-                                           Set.new([MINUTE]), 1493773500,
+                                           Set.new([Wavefront::MINUTE]), 1493773500,
                                            "appServer1", nil,
                                            "defaultSource")}
     # no histogram granularity specified
@@ -80,7 +80,7 @@ class TestUtils < Test::Unit::TestCase
                       "!D 1493773500 #20 30.0 #10 5.1 \"request.latency\" source=\"appServer1\" " +
                       "\"region\"=\"us-west\"\n"],
                  Wavefront::WavefrontUtil.histogram_to_line_data("request.latency", [[30.0, 20], [5.1, 10]],
-                                                      Set.new([MINUTE, HOUR, DAY]), 1493773500,
+                                                      Set.new([Wavefront::MINUTE, Wavefront::HOUR, Wavefront::DAY]), 1493773500,
                                                       "appServer1", {"region"=>"us-west"},
                                                       "defaultSource").split("\\n"))
   end

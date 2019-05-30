@@ -23,6 +23,9 @@ Gem::Specification.new do |spec|
   spec.executables   = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
   spec.require_paths = ['lib']
 
+  spec.add_dependency 'concurrent-ruby', '~> 1.1', '>= 1.1.5'
+  spec.add_dependency 'net_tcp_client', '~> 2.2'
+
   spec.add_development_dependency 'bundler', '~> 2.0'
   spec.add_development_dependency 'test-unit', '~> 3.3'
 

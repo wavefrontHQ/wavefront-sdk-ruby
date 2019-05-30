@@ -1,14 +1,15 @@
 # frozen_string_literal: true
 
-require 'socket'
 require_relative './application_tags'
+require_relative './utils'
 
 module Wavefront
   class HeartbeaterService
-    HEARTBEAT_INTERVAL_SECONDS = 60 * 5
+    HEARTBEAT_INTERVAL = 60 * 5 # in seconds
 
     def initialize(sender, application_tags, components, source = Socket.gethostname)
       @sender = sender
+      @source = source
       @components_tags = Array(components).map do |component|
         {
           APPLICATION_TAG_KEY => application_tags.application,
@@ -18,40 +19,26 @@ module Wavefront
           COMPONENT_TAG_KEY => component
         }
       end
-      @source = source
-      @closed = false
-      @task = nil
       _start
     end
 
     def stop
-      @closed = true
-      @task&.kill&.join
-      @task = nil
+      @timer&.stop
     end
 
     private
 
     def _start
-      @task = Thread.new { _run }
-    end
-
-    def _run
-      until @closed
-        Thread.handle_interrupt(RuntimeError => :never) do
-          _beat
-        end
-        sleep(HEARTBEAT_INTERVAL_SECONDS)
-      end
+      @timer&.stop
+      @timer = ConstantTickTimer.new(self.class::HEARTBEAT_INTERVAL, true) { _beat }
     end
 
     def _beat
       @components_tags.each do |comp_tags|
-        @sender.send_metric(HEART_BEAT_METRIC, 1.0, (Time.now.to_f * 1000.0).to_i, @source, comp_tags)
+        @sender.send_metric(HEART_BEAT_METRIC, 1.0, (Time.now.to_f * 1000.0).round, @source, comp_tags)
       end
     rescue StandardError => e
-      # TODO: Use logger instead of warn?
-      warn "Error sending heartbeat. #{e}\n\t#{e.backtrace.join("\n\t")}"
+      Wavefront.logger.warn "Error sending heartbeat. #{e}\n\t#{e.backtrace.join("\n\t")}"
     end
   end
 end

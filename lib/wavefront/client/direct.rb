@@ -1,24 +1,30 @@
+# frozen_string_literal: true
+
 # Wavefront Direct Ingestion Client.
 # Sends data directly to Wavefront cluster via the direct ingestion API.
 #
 # @author Yogesh Prasad Kurmi (ykurmi@vmware.com)
 
 require 'uri'
+require 'socket'
 require 'net/http'
 
 require_relative 'common/utils'
-require_relative 'common/atomic_integer'
 require_relative 'entities/metrics/wavefront_metric_sender'
 require_relative 'entities/histogram/wavefront_histogram_sender'
 require_relative 'entities/tracing/wavefront_tracing_span_sender'
 require_relative 'common/constants'
 
-module Wavefront
+require_relative 'internal-metrics/registry'
+require_relative 'internal-metrics/reporter'
 
+module Wavefront
   class WavefrontDirectIngestionClient
     include WavefrontMetricSender
     include WavefrontHistogramSender
     include WavefrontTracingSpanSender
+
+    attr_reader :default_source
 
     # Construct Direct Client.
     #
@@ -29,67 +35,81 @@ module Wavefront
     # @param batch_size [Integer] Batch Size, amount of data sent by one api call,
     # 10000 by default
     # @param flush_interval_seconds [Integer] Interval flush time, 5 secs by default
-    def initialize(server, token, max_queue_size=50000, batch_size=10000, flush_interval_seconds=5)
-      @failures = AtomicInteger.new
+    def initialize(server, token, max_queue_size: 50_000, batch_size: 10_000, flush_interval_seconds: 5)
       @server = server
+      @default_source = Socket.gethostname || 'wavefrontDirectSender'
+
       @batch_size = batch_size
-      @flush_interval_seconds = flush_interval_seconds
-      @default_source = "wavefrontDirectSender"
       @metrics_buffer = SizedQueue.new(max_queue_size)
       @histograms_buffer = SizedQueue.new(max_queue_size)
       @tracing_spans_buffer = SizedQueue.new(max_queue_size)
-      @headers = {'Content-Type'=>'application/octet-stream',
-                      'Content-Encoding'=>'gzip',
-                      'Authorization'=>'Bearer ' + token}
+      @headers = { 'Content-Type' => 'application/octet-stream',
+                   'Content-Encoding' => 'gzip',
+                   'Authorization' => 'Bearer ' + token }.freeze
+
       @lock = Mutex.new
       @closed = false
-      @task = Thread.new {schedule_task}
 
-      # Start a task to send the metrics periodically
-      @task.run
+      @internal_store = InternalMetricsRegistry.new(SDK_METRIC_PREFIX_DIRECT, PROCESS_TAG_KEY => Process.pid || -1)
+
+      # gauges
+      @internal_store.gauge('points.queue.size') { @metrics_buffer.size }
+      @internal_store.gauge('points.queue.remaining_capacity') { @metrics_buffer.max - @metrics_buffer.size }
+      @internal_store.gauge('histograms.queue.size') { @histograms_buffer.size }
+      @internal_store.gauge('histograms.queue.remaining_capacity') { @histograms_buffer.max - @histograms_buffer.size }
+      @internal_store.gauge('spans.queue.size') { @tracing_spans_buffer.size }
+      @internal_store.gauge('spans.queue.remaining_capacity') { @tracing_spans_buffer.max - @tracing_spans_buffer.size }
+
+      # counters
+      @points_valid = @internal_store.counter('points.valid')
+      @points_invalid = @internal_store.counter('points.invalid')
+      @points_dropped = @internal_store.counter('points.dropped')
+      @point_report_errors = @internal_store.counter('points.report.errors')
+
+      @histograms_valid = @internal_store.counter('histograms.valid')
+      @histograms_invalid = @internal_store.counter('histograms.invalid')
+      @histograms_dropped = @internal_store.counter('histograms.dropped')
+      @histogram_report_errors = @internal_store.counter('histograms.report.errors')
+
+      @spans_valid = @internal_store.counter('spans.valid')
+      @spans_invalid = @internal_store.counter('spans.invalid')
+      @spans_dropped = @internal_store.counter('spans.dropped')
+      @span_report_errors = @internal_store.counter('spans.report.errors')
+
+      @flush_interval_seconds = flush_interval_seconds
+      @timer = EarlyTickTimer.new(@flush_interval_seconds, false) { flush_now }
+
+      # Start internal metrics
+      @internal_reporter = InternalReporter.new(self, @internal_store)
     end
 
     # Get Total Failure Count
     def failure_count
-      @failures.value
+      @point_report_errors.value + @histogram_report_errors.value + @span_report_errors.value
     end
 
     # Flush all buffer before close the client.
-    def close
+    def close(timeout=10)
+      @timer.stop(timeout/2)
       flush_now
-      @lock.synchronize do
-        @closed = true
-        @task.exit
-      end
-    end
-
-    def schedule_task
-      # Flush every 5 secs by default
-      until @closed do
-        sleep(@flush_interval_seconds)
-        flush_now
-      end
+      @internal_reporter.stop(timeout/2)
     end
 
     # Flush all the data buffer immediately.
     def flush_now
-      internal_flush(@metrics_buffer, WAVEFRONT_METRIC_FORMAT)
-      internal_flush(@histograms_buffer, WAVEFRONT_HISTOGRAM_FORMAT)
-      internal_flush(@tracing_spans_buffer, WAVEFRONT_TRACING_SPAN_FORMAT)
+      internal_flush(@metrics_buffer, WAVEFRONT_METRIC_FORMAT, 'points', @point_report_errors)
+      internal_flush(@histograms_buffer, WAVEFRONT_HISTOGRAM_FORMAT, 'histograms', @histogram_report_errors)
+      internal_flush(@tracing_spans_buffer, WAVEFRONT_TRACING_SPAN_FORMAT, 'spans', @span_report_errors)
     end
 
     # Get all data from one data buffer to a list, and report that list.
     #
     # @param data_buffer [Queue] Data buffer to be flush and sent
     # @param data_format [String] Type of data to be sent
-    def internal_flush(data_buffer, data_format)
+    def internal_flush(data_buffer, data_format, entity_prefix, report_errors)
       data = []
-      size = data_buffer.size
-      while size > 0 && !data_buffer.empty?
-        data << data_buffer.pop
-        size -= 1
-      end
-      batch_report(data, data_format)
+      data << data_buffer.pop until data_buffer.empty?
+      batch_report(data, data_format, entity_prefix, report_errors)
     end
 
     # One api call sending one given string data.
@@ -97,37 +117,38 @@ module Wavefront
     # @param points [List<String>] List of data in string format, concat by '\n'
     # @param data_format [String] Type of data to be sent
     def report(points, data_format)
-      begin
-        payload = WavefrontUtil.gzip_compress(points)
-        uri = URI.parse(@server)
-        https = Net::HTTP.new(uri.host, uri.port)
-        https.use_ssl = true
-        request = Net::HTTP::Post.new('/report?f=' + data_format, @headers)
-        request.body = payload
+      payload = WavefrontUtil.gzip_compress(points)
+      uri = URI.parse(@server)
+      https = Net::HTTP.new(uri.host, uri.port)
+      https.use_ssl = true
+      request = Net::HTTP::Post.new('/report?f=' + data_format, @headers)
+      request.body = payload
 
-        response = https.request(request)
-        unless [200, 202].include? response.code.to_i
-          warn "Error reporting points, Response #{response.code} #{response.message}"
-        end
-      rescue StandardError => e
-        @failures.increment
-        raise e
+      response = https.request(request)
+      unless [200, 202].include? response.code.to_i
+        Wavefront.logger.warn "Dropped points, Response #{response.code} #{response.message}"
       end
+      response.code.to_i
     end
 
     # One api call sending one given list of data.
     #
     # @param batch_line_data [List] List of data to be sent
     # @param data_format [String] Type of data to be sent
-    def batch_report(batch_line_data, data_format)
+    def batch_report(batch_line_data, data_format, entity_prefix, report_errors)
       # Split data into chunks, each with the size of given batch_size
       data_chunks = WavefrontUtil.chunks(batch_line_data, @batch_size)
       data_chunks.each do |batch|
-        # report once per batch
         begin
-          report(batch.join("\n") + "\n", data_format)
+          # report once per batch
+          status_code = report(batch.join + "\n", data_format)
+          @internal_store.counter("#{entity_prefix}.report.#{status_code}").inc
+          unless [200, 202].include? status_code.to_i
+            @internal_store.counter("#{entity_prefix}.dropped").inc(batch.size)
+          end
         rescue StandardError => e
-          warn "Failed to report #{data_format} data points to wavefront. Error: #{e}\n\t#{e.backtrace.join("\n\t")}"
+          report_errors.inc
+          Wavefront.logger.warn "Failed to report #{data_format} data points to wavefront. Error: #{e}"
         end
       end
     end
@@ -147,8 +168,19 @@ module Wavefront
     # @param source [String] Source
     # @param tags [Hash] Tags
     def send_metric(name, value, timestamp, source, tags)
-      line_data = WavefrontUtil.metric_to_line_data(name, value, timestamp, source, tags, @default_source)
-      @metrics_buffer.push(line_data)
+      begin
+        line_data = WavefrontUtil.metric_to_line_data(name, value, timestamp, source, tags, @default_source)
+        @points_valid.inc
+      rescue StandardError => e
+        @points_invalid
+        raise e
+      end
+      begin
+        @metrics_buffer.push(line_data, non_block = true)
+      rescue StandardError => e
+        @points_dropped.inc
+        Wavefront.logger.warn('Buffer full, dropping metric point: ' + line_data)
+      end
     end
 
     # Send a list of metrics immediately.
@@ -157,6 +189,11 @@ module Wavefront
     # common.utils.metric_to_line_data()
     # @param metrics [List<String>] List of string spans data
     def send_metric_now(metrics)
+      if metrics.nil? || metrics.empty?
+        @points_invalid.inc
+        raise(ArgumentError, 'point must be non-null and in WF data format')
+      end
+      @points_valid.inc(metrics.size)
       batch_report(metrics, WAVEFRONT_METRIC_FORMAT)
     end
 
@@ -178,9 +215,21 @@ module Wavefront
     # @param tags [Hash]
     def send_distribution(name, centroids, histogram_granularities,
                           timestamp, source, tags)
-      line_data = WavefrontUtil.histogram_to_line_data(name, centroids, histogram_granularities,
-                                      timestamp, source, tags, @default_source)
-      @histograms_buffer.push(line_data)
+      begin
+        line_data = WavefrontUtil.histogram_to_line_data(name, centroids, histogram_granularities,
+                                                         timestamp, source, tags, @default_source)
+        @histograms_valid.inc
+      rescue StandardError => e
+        @histograms_invalid.inc
+        raise e
+      end
+
+      begin
+        @histograms_buffer.push(line_data, non_block = true)
+      rescue StandardError => e
+        @histograms_dropped.inc
+        Wavefront.logger.warn('Buffer full, dropping histograms: ' + line_data)
+      end
     end
 
     # Send a list of distribution immediately.
@@ -190,6 +239,11 @@ module Wavefront
     #
     # @param distributions [List<String>] List of string spans data
     def send_distribution_now(distributions)
+      if distributions.nil? || distributions.empty?
+        @histograms_invalid.inc
+        raise(ArgumentError, 'Distributions must be non-null and in WF data format')
+      end
+      @points_valid.inc(distributions.size)
       batch_report(distributions, WAVEFRONT_HISTOGRAM_FORMAT)
     end
 
@@ -220,10 +274,22 @@ module Wavefront
     def send_span(name, start_millis, duration_millis, source, trace_id,
                   span_id, parents, follows_from, tags, span_logs)
 
-      line_data = WavefrontUtil.tracing_span_to_line_data(name, start_millis, duration_millis,
-                                            source, trace_id, span_id, parents,
-                                            follows_from, tags, span_logs, @default_source)
-      @tracing_spans_buffer.push(line_data)
+      begin
+        line_data = WavefrontUtil.tracing_span_to_line_data(name, start_millis, duration_millis,
+                                                            source, trace_id, span_id, parents,
+                                                            follows_from, tags, span_logs, @default_source)
+        @spans_valid.inc
+      rescue StandardError => e
+        @spans_invalid.inc
+        raise e
+      end
+
+      begin
+        @tracing_spans_buffer.push(line_data, non_block = true)
+      rescue StandardError => e
+        @spans_dropped.inc
+        Wavefront.logger.warn('Buffer full, dropping span: ' + line_data)
+      end
     end
 
     # Send a list of spans immediately.
@@ -233,6 +299,11 @@ module Wavefront
     #
     # @param spans [List<String>] List of string spans data
     def send_span_now(spans)
+      if spans.nil? || spans.empty?
+        @spans_invalid.inc
+        raise(ArgumentError, 'spans must be non-null and in WF data format')
+      end
+      @spans_valid.inc(spans.size)
       batch_report(spans, WAVEFRONT_TRACING_SPAN_FORMAT)
     end
   end
