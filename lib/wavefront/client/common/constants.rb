@@ -18,10 +18,10 @@ module Wavefront
   SERVICE_TAG_KEY = 'service'
 
   # ∆: INCREMENT
-  DELTA_PREFIX = '∆' # '\u2206'
+  DELTA_PREFIX = "\u2206" # '∆'
 
   # Δ: GREEK CAPITAL LETTER DELTA
-  DELTA_PREFIX_2 = 'Δ' # '\u0394'
+  DELTA_PREFIX_2 = "\u0394" # 'Δ'
 
   # Use this format to send metric data to Wavefront.
   WAVEFRONT_METRIC_FORMAT = 'wavefront'
@@ -40,4 +40,15 @@ module Wavefront
 
   # Null value emitted for optional undefined tags.
   NULL_TAG_VAL = 'none'
+
+  # Histogram granularities
+  MINUTE = '!M'
+  HOUR = '!H'
+  DAY = '!D'
+
+  # Internal metrics prefix
+  SDK_METRIC_PREFIX = '~sdk.ruby'
+  SDK_METRIC_PREFIX_DIRECT = SDK_METRIC_PREFIX + '.core.sender.direct'
+  SDK_METRIC_PREFIX_PROXY = SDK_METRIC_PREFIX + '.core.sender.proxy'
+  PROCESS_TAG_KEY = 'pid'
 end

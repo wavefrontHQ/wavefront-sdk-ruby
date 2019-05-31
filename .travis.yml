@@ -3,13 +3,20 @@ language: ruby
 rvm:
   - 2.3
   - 2.6
+  - jruby
+  - truffleruby
+
+matrix:
+  fast_finish: true
+  allow_failures:
+  - rvm: jruby
+  - rvm: truffleruby
 
 before_install:
   - gem install bundler -v 2.0.1 --no-document
 
 script:
-  - bundler exec ruby test/test_utils.rb
-  - bundler exec ruby test/test_hb.rb
+  - bundler exec ruby test/test_all.rb
 
 notifications:
   email:

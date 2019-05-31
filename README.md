@@ -138,3 +138,5 @@ total_failures = client.failure_count
 client.close
 ```
 
+## Monitoring the SDK
+See the [diagnostic metrics documentation](docs/internal_metrics.md) for details on the internal metrics that the SDK collects and reports to Wavefront.
