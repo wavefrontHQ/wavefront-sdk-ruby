@@ -78,9 +78,9 @@ module Wavefront
     # @return [Hash] metric list
     def get_metric_fields(metric)
       if metric.class == InternalCounter
-        { count: metric.value }
+        { :".count" => metric.value }
       elsif metric.class == InternalGauge
-        { value: metric.value }
+        { nil => metric.value }
       else
         {}
       end

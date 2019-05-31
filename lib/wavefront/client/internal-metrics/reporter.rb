@@ -20,12 +20,11 @@ module Wavefront
 
     def start
       @timer&.stop
-      @timer = ConstantTickTimer.new(@reporting_interval, true) { _report }
+      @timer = ConstantTickTimer.new(@reporting_interval) { _report }
    end
 
-    def stop(timeout=10)
+    def stop(timeout = 1)
       @timer&.stop(timeout)
-      _report
     end
 
     private
@@ -34,14 +33,14 @@ module Wavefront
       @registry.metrics.each do |data|
         if (data.class == InternalCounter) || (data.class == InternalGauge)
           result = @registry.get_metric_fields(data)
-          @client.send_metric(@registry.entity_prefix + data.name.to_s + '.' + result.keys[0].to_s, data.value,
+          @client.send_metric("#{@registry.entity_prefix}#{data.name}#{result.keys[0]}", data.value,
                               (Time.now.to_f * 1000).round, @client.default_source, @registry.tags)
         else
-          Wavefront::logger.warn "Metric type not supported: #{data.class}"
+          Wavefront.logger.warn "Metric type not supported: #{data.class}"
         end
       end
     rescue StandardError => e
-      Wavefront::logger.warn "Error reporting internal metrics: #{e.inspect}"
+      Wavefront.logger.error "Internal Reporter error: #{e.message}"
     end
   end
 end

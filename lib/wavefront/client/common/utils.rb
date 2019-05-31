@@ -9,7 +9,7 @@ require 'set'
 require 'concurrent'
 
 module Wavefront
-  @@wflog = Logger.new(STDOUT)
+  @@wflog = Logger.new(STDERR)
 
   def self.logger
     @@wflog
@@ -47,12 +47,8 @@ module Wavefront
     # @param string [String] string to be sanitized
     # @return [String] Sanitized string
     def self.sanitize(item)
-      whitespace_sanitized = item.to_s.gsub ' ', '-'
-      # TODO
-      if whitespace_sanitized.include? '"'
-        '"' + whitespace_sanitized.gsub!(/\"/, '\\\\"') + '"'
-      end
-
+      whitespace_sanitized = item.to_s.gsub /\s+/, '-'
+      whitespace_sanitized.gsub!(/\"+/, '\\\\"')
       '"' + whitespace_sanitized + '"'
     end
 
@@ -183,20 +179,23 @@ module Wavefront
       raise ArgumentError 'interval must be > 0' if interval <= 0
       raise ArgumentError 'block is mandatory' if block.nil?
 
-      @cond = Concurrent::Event.new
+      @stopev = Concurrent::Event.new
       @st = executor
 
       nex = run_now ? 0 : interval
 
-      task = lambda do # start the timer
-        @cond.wait(nex)
-        return if @cond.set?
+      task = lambda do
+        @stopev.wait(nex)
+        if @stopev.set?
+          @st.shutdown
+          return
+        end
 
         begin
           s = Concurrent.monotonic_time
           block.call
         rescue StandardError => e
-          Wavefront.logger.warn "Error in Timer Task: #{e}\n\t#{e.backtrace.join("\n\t")}"
+          Wavefront.logger.error "Error in Timer Task: #{e}\n\t#{e.backtrace.join("\n\t")}"
         ensure
           d = Concurrent.monotonic_time - s
           r = (d / interval).floor + 1
@@ -205,12 +204,11 @@ module Wavefront
         end
       end
 
-      @st.post &task # check error?
+      @st.post &task # start timer
     end
 
-    def stop(timeout = 10)
-      @st.shutdown
-      @cond.set
+    def stop(timeout = 5)
+      @stopev.set
       @st.wait_for_termination(timeout)
       unless @st.shutdown?
         @st.kill
@@ -224,20 +222,23 @@ module Wavefront
       raise ArgumentError 'interval must be > 0' if interval <= 0
       raise ArgumentError 'block is mandatory' if block.nil?
 
-      @cond = Concurrent::Event.new
+      @stopev = Concurrent::Event.new
       @st = executor
 
       nex = run_now ? 0.0001 : interval
 
-      task = lambda do # start the timer
-        @cond.wait(nex)
-        return if @cond.set?
+      task = lambda do
+        @stopev.wait(nex)
+        if @stopev.set?
+          @st.shutdown
+          return
+        end
 
         begin
           s = Concurrent.monotonic_time
           block.call
         rescue StandardError => e
-          Wavefront.logger.warn "Error in Timer Task: #{e}\n\t#{e.backtrace.join("\n\t")}"
+          Wavefront.logger.error "Error in Timer Task: #{e}\n\t#{e.backtrace.join("\n\t")}"
         ensure
           d = Concurrent.monotonic_time - s - interval
           nex = d >= 0 ? 0.00001 : -d
@@ -245,12 +246,11 @@ module Wavefront
         end
       end
 
-      @st.post &task # check error?
+      @st.post &task # start timer
     end
 
-    def stop(timeout = 10)
-      @st.shutdown
-      @cond.set
+    def stop(timeout = 5)
+      @stopev.set
       @st.wait_for_termination(timeout)
       unless @st.shutdown?
         @st.kill

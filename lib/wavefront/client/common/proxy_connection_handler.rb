@@ -14,7 +14,7 @@ module Wavefront
     # Construct ProxyConnectionHandler.
     # @param address [String] Proxy Address
     # @param port [Integer] Proxy Port
-    def initialize(address, port, internal_store, retries: 3, retry_interval: 0.5)
+    def initialize(address, port, internal_store, retries: 2, retry_interval: 0.5)
       @internal_store = internal_store
       @lock = Mutex.new
 
@@ -31,32 +31,37 @@ module Wavefront
 
       @errors = @internal_store.counter('errors')
       @connect_errors = @internal_store.counter('connect.errors')
+
+      # connect now to reduce send latency
+      connect
     end
 
     # Open a socket connection to the given address:port
     def connect
-      @lock.synchronize do
-        last_error = nil
-        @retries.times do |_ri|
-          begin
-            connect_locked
-          rescue Net::TCPClient::ConnectionFailure => e
-            Wavefront.logger.warn "Connection failure: #{e.cause}"
-            @connect_errors.inc
-            last_error = e.cause
-          rescue Net::TCPClient::ConnectionTimeout, Net::TCPClient::WriteTimeout => e
-            Wavefront.logger.warn "Warning: #{e.cause}"
-            @connect_errors.inc
-            last_error = e.cause
-          rescue StandardError => e
-            Wavefront.logger.warn "Unexpected Error: #{e}\n\t#{e.backtrace.join("\n\t")}"
-            last_error = e
-          ensure
-            sleep @retry_interval
-          end
+      last_error = nil
+      @retries.times do |_ri|
+        begin
+          @lock.synchronize { @client ||= Net::TCPClient.new(@client_options) }
+          try_reconnect
+          break
+        rescue Net::TCPClient::ConnectionFailure => e
+          Wavefront.logger.error "Connection failure: #{e.cause}"
+          @connect_errors.inc
+          last_error = e.cause
+        rescue Net::TCPClient::ConnectionTimeout, Net::TCPClient::WriteTimeout => e
+          Wavefront.logger.warn "Warning: #{e.cause}"
+          @connect_errors.inc
+          last_error = e.cause
+        rescue StandardError => e
+          Wavefront.logger.error "Unexpected Error: #{e.message}\n\t#{e.backtrace.join("\n\t")}"
+          last_error = e
+        ensure
+          sleep @retry_interval unless last_error.nil?
         end
-        @errors.inc unless last_error.nil?
-        raise SendError, last_error unless last_error.nil?
+      end
+      if last_error
+        @errors.inc
+        raise SendError, last_error
       end
     end
 
@@ -73,41 +78,39 @@ module Wavefront
     # @param line_data [String] Data to be sent
     # @param reconnect [Boolean] If it's the second time trying to send data
     def send_data(line_data)
-      # tcp writes may not be thread safe.
-      @lock.synchronize do
-        last_error = nil
-        @retries.times do |_ri|
-          begin
-            connect_locked # client.write auto-reconnects only if retry counts > 0
-            @client.write(line_data.encode('utf-8'))
-            break
-          rescue Net::TCPClient::ConnectionFailure => e
-            Wavefront.logger.warn "Connection failure: #{e.cause}"
-            @connect_errors.inc
-            last_error = e.cause
-          rescue Net::TCPClient::ConnectionTimeout, Net::TCPClient::WriteTimeout => e
-            Wavefront.logger.warn "Warning: #{e.cause}"
-            @connect_errors.inc
-            last_error = e.cause
-          rescue StandardError => e
-            Wavefront.logger.warn "Unexpected Error: #{e}\n\t#{e.backtrace.join("\n\t")}"
-            last_error = e
-          ensure
-            sleep @retry_interval unless last_error.nil?
-          end
+      last_error = nil
+      @retries.times do |_ri|
+        begin
+          try_reconnect # client.write auto-reconnects only if retry counts > 0
+          @client.write(line_data.encode('utf-8')) # assuming this is atomic
+          break
+        rescue Net::TCPClient::ConnectionFailure => e
+          Wavefront.logger.error "Connection failure: #{e.cause}"
+          @connect_errors.inc
+          last_error = e.cause
+        rescue Net::TCPClient::ConnectionTimeout, Net::TCPClient::WriteTimeout => e
+          Wavefront.logger.warn "Warning: #{e.cause}"
+          @connect_errors.inc
+          last_error = e.cause
+        rescue StandardError => e
+          Wavefront.logger.error "Unexpected Error: #{e.message}\n\t#{e.backtrace.join("\n\t")}"
+          last_error = e
+        ensure
+          sleep @retry_interval unless last_error.nil?
         end
-        @errors.inc unless last_error.nil?
-        raise SendError, last_error unless last_error.nil?
+      end
+      if last_error
+        @errors.inc
+        raise SendError, last_error
       end
     end
 
     private
 
-    def connect_locked
-      if @client
-        @client.connect if @client.closed?
-      else
-        @client = Net::TCPClient.new(@client_options)
+    def try_reconnect
+      # double checked locking as reconnect should be a rare event
+      if @client&.closed?
+        @lock.synchronize { @client.connect if @client.closed? }
       end
     end
   end

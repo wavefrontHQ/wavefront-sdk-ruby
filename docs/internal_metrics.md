@@ -51,14 +51,6 @@ If you are using a `WavefrontProxyClient` instance, the following diagnostic met
 |~sdk.ruby.core.sender.proxy.points.dropped.count                       |Counter    |Points dropped due to failure to write to socket|
 |~sdk.ruby.core.sender.proxy.metricHandler.errors.count                 |Counter    |Errors encountered, excluding connection errors |
 |~sdk.ruby.core.sender.proxy.metricHandler.connect.errors.count         |Counter    |Errors encountered connecting to remote socket|
-<!--
-|~sdk.ruby.core.sender.proxy.metricHandler.socket.write.success.count   |Counter    |Successful writes to socket|
-|~sdk.ruby.core.sender.proxy.metricHandler.socket.write.errors.count    |Counter    |Unsuccessful writes to socket|
-|~sdk.ruby.core.sender.proxy.metricHandler.socket.flush.success.count   |Counter    |Successful socket flushes|
-|~sdk.ruby.core.sender.proxy.metricHandler.socket.flush.errors.count    |Counter    |Unsuccessful socket flushes|
-|~sdk.ruby.core.sender.proxy.metricHandler.socket.reset.success.count   |Counter    |Successful connection resets|
-|~sdk.ruby.core.sender.proxy.metricHandler.socket.reset.errors.count    |Counter    |Unsuccessful connection resets|
--->
 
 ### Histogram Distributions Handler
 |Metric Name|Metric Type|Description|
@@ -69,14 +61,6 @@ If you are using a `WavefrontProxyClient` instance, the following diagnostic met
 |~sdk.ruby.core.sender.proxy.histograms.dropped.count                       |Counter    |Distributions dropped due to failure to write to socket|
 |~sdk.ruby.core.sender.proxy.histogramHandler.errors.count                  |Counter    |Errors encountered, excluding connection errors |
 |~sdk.ruby.core.sender.proxy.histogramHandler.connect.errors.count          |Counter    |Errors encountered connecting to remote socket|
-<!--
-|~sdk.ruby.core.sender.proxy.histogramHandler.socket.write.success.count    |Counter    |Successful writes to socket|
-|~sdk.ruby.core.sender.proxy.histogramHandler.socket.write.errors.count     |Counter    |Unsuccessful writes to socket|
-|~sdk.ruby.core.sender.proxy.histogramHandler.socket.flush.success.count    |Counter    |Successful socket flushes|
-|~sdk.ruby.core.sender.proxy.histogramHandler.socket.flush.errors.count     |Counter    |Unsuccessful socket flushes|
-|~sdk.ruby.core.sender.proxy.histogramHandler.socket.reset.success.count    |Counter    |Successful connection resets|
-|~sdk.ruby.core.sender.proxy.histogramHandler.socket.reset.errors.count     |Counter    |Unsuccessful connection resets|
--->
 
 ### Tracing Handler
 |Metric Name|Metric Type|Description|
@@ -87,11 +71,3 @@ If you are using a `WavefrontProxyClient` instance, the following diagnostic met
 |~sdk.ruby.core.sender.proxy.spans.dropped.count                        |Counter    |Spans dropped due to failure to write to socket|
 |~sdk.ruby.core.sender.proxy.tracingHandler.errors.count                |Counter    |Errors encountered, excluding connection errors |
 |~sdk.ruby.core.sender.proxy.tracingHandler.connect.errors.count        |Counter    |Errors encountered connecting to remote socket|
-<!--
-|~sdk.ruby.core.sender.proxy.tracingHandler.socket.write.success.count  |Counter    |Successful writes to socket|
-|~sdk.ruby.core.sender.proxy.tracingHandler.socket.write.errors.count   |Counter    |Unsuccessful writes to socket|
-|~sdk.ruby.core.sender.proxy.tracingHandler.socket.flush.success.count  |Counter    |Successful socket flushes|
-|~sdk.ruby.core.sender.proxy.tracingHandler.socket.flush.errors.count   |Counter    |Unsuccessful socket flushes|
-|~sdk.ruby.core.sender.proxy.tracingHandler.socket.reset.success.count  |Counter    |Successful connection resets|
-|~sdk.ruby.core.sender.proxy.tracingHandler.socket.reset.errors.count   |Counter    |Unsuccessful connection resets|
--->

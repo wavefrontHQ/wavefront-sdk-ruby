@@ -50,7 +50,7 @@ module Wavefront
       @lock = Mutex.new
       @closed = false
 
-      @internal_store = InternalMetricsRegistry.new(SDK_METRIC_PREFIX_DIRECT, PROCESS_TAG_KEY => Process.pid || -1)
+      @internal_store = InternalMetricsRegistry.new(SDK_METRIC_PREFIX_DIRECT, PROCESS_TAG_KEY => (Process.pid || 'unknown'))
 
       # gauges
       @internal_store.gauge('points.queue.size') { @metrics_buffer.size }
@@ -89,10 +89,10 @@ module Wavefront
     end
 
     # Flush all buffer before close the client.
-    def close(timeout=10)
-      @timer.stop(timeout/2)
+    def close(timeout = 5)
+      @timer.stop(timeout)
       flush_now
-      @internal_reporter.stop(timeout/2)
+      @internal_reporter.stop
     end
 
     # Flush all the data buffer immediately.
@@ -109,7 +109,7 @@ module Wavefront
     def internal_flush(data_buffer, data_format, entity_prefix, report_errors)
       data = []
       data << data_buffer.pop until data_buffer.empty?
-      batch_report(data, data_format, entity_prefix, report_errors)
+      batch_report(data, data_format, entity_prefix, report_errors) unless data.empty?
     end
 
     # One api call sending one given string data.
@@ -148,7 +148,7 @@ module Wavefront
           end
         rescue StandardError => e
           report_errors.inc
-          Wavefront.logger.warn "Failed to report #{data_format} data points to wavefront. Error: #{e}"
+          Wavefront.logger.error "Failed to report #{data_format} data points to wavefront. Error: #{e}"
         end
       end
     end

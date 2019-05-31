@@ -34,7 +34,7 @@ module Wavefront
     # @param tracing_port [Integer] Tracing Port on which the Wavefront proxy is
     # listening on
     def initialize(host, metrics_port, distribution_port, tracing_port)
-      @internal_store = InternalMetricsRegistry.new(SDK_METRIC_PREFIX_PROXY, PROCESS_TAG_KEY => Process.pid)
+      @internal_store = InternalMetricsRegistry.new(SDK_METRIC_PREFIX_PROXY, PROCESS_TAG_KEY => (Process.pid||"unknown"))
       @default_source = Socket.gethostname
 
       # internal metrics
@@ -57,15 +57,20 @@ module Wavefront
       @histogram_proxy_connection_handler = ProxyConnectionHandler.new(host, distribution_port, @internal_store) unless distribution_port.nil?
       @tracing_proxy_connection_handler = ProxyConnectionHandler.new(host, tracing_port, @internal_store) unless tracing_port.nil?
 
-      @internal_reporter = InternalReporter.new(self, @internal_store)
+      begin
+        @internal_reporter = InternalReporter.new(self, @internal_store)
+      rescue StandardError => e
+        Wavefront.logger.warn "Failed to create internal metric reporter: #{e.message}"
+        # don't re-raise since non-essential
+      end
     end
 
     # Close all proxy connections.
     def close
+      @internal_reporter&.stop
       @metrics_proxy_connection_handler&.close
       @histogram_proxy_connection_handler&.close
       @tracing_proxy_connection_handler&.close
-      @internal_reporter.stop
     end
 
     # Get Total Failure Count for all connections.

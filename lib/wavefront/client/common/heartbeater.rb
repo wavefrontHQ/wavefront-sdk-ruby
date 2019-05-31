@@ -38,7 +38,7 @@ module Wavefront
         @sender.send_metric(HEART_BEAT_METRIC, 1.0, (Time.now.to_f * 1000.0).round, @source, comp_tags)
       end
     rescue StandardError => e
-      Wavefront.logger.warn "Error sending heartbeat. #{e}\n\t#{e.backtrace.join("\n\t")}"
+      Wavefront.logger.error "Error sending heartbeat. #{e}\n\t#{e.backtrace.join("\n\t")}"
     end
   end
 end

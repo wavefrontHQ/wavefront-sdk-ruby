@@ -47,8 +47,8 @@ module Wavefront
   DAY = '!D'
 
   # Internal metrics prefix
-  SDK_METRIC_PREFIX = '~sdk.ruby.core'
-  SDK_METRIC_PREFIX_DIRECT = SDK_METRIC_PREFIX + '.sender.direct'
-  SDK_METRIC_PREFIX_PROXY = SDK_METRIC_PREFIX + '.sender.proxy'
+  SDK_METRIC_PREFIX = '~sdk.ruby'
+  SDK_METRIC_PREFIX_DIRECT = SDK_METRIC_PREFIX + '.core.sender.direct'
+  SDK_METRIC_PREFIX_PROXY = SDK_METRIC_PREFIX + '.core.sender.proxy'
   PROCESS_TAG_KEY = 'pid'
 end
