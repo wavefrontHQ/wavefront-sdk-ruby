@@ -52,7 +52,7 @@ module Wavefront
       begin
         connect unless @reconnecting_socket
         @reconnecting_socket.puts(line_data.encode('utf-8'))
-      rescue SocketError => error
+      rescue => error
         if reconnect
           @reconnecting_socket = nil
           # Try to resend
